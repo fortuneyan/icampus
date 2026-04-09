@@ -1,0 +1,33 @@
+2026-04-09 18:47:02 - smart-campus - INFO - 开始初始化数据库...
+2026-04-09 18:47:02 - smart-campus - INFO - SQLite 数据库，无需创建
+2026-04-09 18:47:03 - smart-campus - ERROR - 数据库初始化失败: (in table 'roles', column 'dept_ids'): Compiler <sqlalchemy.dialects.sqlite.base.SQLiteTypeCompiler object at 0x0000022E77EE6990> can't render element of type ARRAY
+2026-04-09 18:47:56 - smart-campus - INFO - 开始初始化数据库...
+2026-04-09 18:47:56 - smart-campus - INFO - SQLite 数据库，无需创建
+2026-04-09 18:47:56 - smart-campus - INFO - 数据库表创建成功
+2026-04-09 18:47:56 - smart-campus - ERROR - 数据库初始化失败: Could not determine join condition between parent/child tables on relationship User.department - there are multiple foreign key paths linking the tables.  Specify the 'foreign_keys' argument, providing a list of those columns which should be counted as containing a foreign key reference to the parent table.
+2026-04-09 18:48:12 - smart-campus - INFO - 开始初始化数据库...
+2026-04-09 18:48:12 - smart-campus - INFO - SQLite 数据库，无需创建
+2026-04-09 18:48:12 - smart-campus - INFO - 数据库表创建成功
+2026-04-09 18:48:12 - smart-campus - ERROR - 数据库初始化失败: Could not determine join condition between parent/child tables on relationship Department.users - there are multiple foreign key paths linking the tables.  Specify the 'foreign_keys' argument, providing a list of those columns which should be counted as containing a foreign key reference to the parent table.
+2026-04-09 18:48:25 - smart-campus - INFO - 开始初始化数据库...
+2026-04-09 18:48:25 - smart-campus - INFO - SQLite 数据库，无需创建
+2026-04-09 18:48:25 - smart-campus - INFO - 数据库表创建成功
+2026-04-09 18:48:25 - smart-campus - INFO - 默认数据初始化成功
+2026-04-09 18:48:25 - smart-campus - INFO - 数据库初始化完成!
+2026-04-09 18:54:32 - smart-campus - INFO - 开始初始化数据库...
+2026-04-09 18:54:32 - smart-campus - ERROR - 数据库初始化失败: (sqlalchemy.dialects.postgresql.asyncpg.Error) <class 'asyncpg.exceptions.ActiveSQLTransactionError'>: CREATE DATABASE 无法在事物块中运行
+[SQL: CREATE DATABASE smart_campus]
+(Background on this error at: https://sqlalche.me/e/20/dbapi)
+2026-04-09 18:54:55 - smart-campus - INFO - 开始初始化数据库...
+2026-04-09 18:54:55 - smart-campus - ERROR - 数据库初始化失败: (sqlalchemy.dialects.postgresql.asyncpg.Error) <class 'asyncpg.exceptions.ActiveSQLTransactionError'>: CREATE DATABASE 无法在事物块中运行
+[SQL: CREATE DATABASE smart_campus]
+(Background on this error at: https://sqlalche.me/e/20/dbapi)
+2026-04-09 18:55:22 - smart-campus - INFO - 开始初始化数据库...
+2026-04-09 18:55:24 - smart-campus - INFO - 数据库 smart_campus 创建成功
+2026-04-09 18:55:25 - smart-campus - INFO - 数据库表创建成功
+2026-04-09 18:55:25 - smart-campus - INFO - 默认数据初始化成功
+2026-04-09 18:55:25 - smart-campus - INFO - 数据库初始化完成!
+2026-04-09 19:19:16 - smart-campus - INFO - 开始初始化数据库...
+2026-04-09 19:19:16 - smart-campus - INFO - 数据库表创建成功
+2026-04-09 19:19:16 - smart-campus - INFO - 数据库已有数据，跳过初始化
+2026-04-09 19:19:16 - smart-campus - INFO - 数据库初始化完成!
