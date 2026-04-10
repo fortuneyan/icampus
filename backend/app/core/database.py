@@ -21,8 +21,9 @@ class Base(DeclarativeBase):
 is_sqlite = settings.DATABASE_URL.startswith("sqlite")
 
 if is_sqlite:
+    db_url = settings.DATABASE_URL.replace("sqlite://", "sqlite+aiosqlite://")
     engine = create_async_engine(
-        settings.DATABASE_URL,
+        db_url,
         echo=settings.DATABASE_ECHO,
         connect_args={"check_same_thread": False},
         poolclass=StaticPool,

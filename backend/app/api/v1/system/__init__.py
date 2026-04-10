@@ -1,8 +1,22 @@
 from fastapi import APIRouter
-from app.api.v1.system import users, departments, roles
+from app.api.v1.system import (
+    users,
+    departments,
+    roles,
+    teacher_profiles,
+    logs,
+    regions,
+    encryption,
+)
 
 router = APIRouter()
 
 router.include_router(users.router, prefix="/users", tags=["用户管理"])
 router.include_router(departments.router, prefix="/departments", tags=["部门管理"])
 router.include_router(roles.router, prefix="", tags=["角色权限管理"], dependencies=[])
+router.include_router(
+    teacher_profiles.router, prefix="/teacher-profiles", tags=["教师扩展信息"]
+)
+router.include_router(logs.router, prefix="/logs", tags=["日志审计"])
+router.include_router(regions.router, prefix="/regions", tags=["地区管理"])
+router.include_router(encryption.router, prefix="/encryption-keys", tags=["加密密钥"])

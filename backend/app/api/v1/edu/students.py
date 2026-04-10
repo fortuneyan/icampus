@@ -9,20 +9,29 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
 from app.core.security import get_current_user
-from app.core.exceptions import NotFoundException
 from app.models.user import User
+from app.models.student import Student
 from app.schemas.student import StudentCreate, StudentUpdate
 from app.schemas.response import success, page_response
-from app.services.student_service import StudentService
 
 router = APIRouter()
+
+
+def parse_uuid(value: Optional[str]) -> Optional[UUID]:
+    """解析UUID参数"""
+    if not value:
+        return None
+    try:
+        return UUID(value)
+    except (ValueError, AttributeError):
+        return None
 
 
 @router.get("", response_model=dict)
 async def get_students(
     keyword: Optional[str] = Query(None),
-    grade_id: Optional[UUID] = Query(None),
-    class_id: Optional[UUID] = Query(None),
+    grade_id: Optional[str] = Query(None, description="年级ID"),
+    class_id: Optional[str] = Query(None, description="班级ID"),
     status: Optional[str] = Query(None),
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),

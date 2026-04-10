@@ -7,6 +7,21 @@ from app.models.class_model import Class
 from app.models.course import Course
 from app.models.score import Score
 from app.models.schedule import Schedule, Classroom
+from app.models.student_profile import StudentProfile
+from app.models.teacher_profile import TeacherProfile
+from app.models.operation_log import OperationLog
+from app.models.login_log import LoginLog
+from app.models.data_access_log import DataAccessLog
+from app.models.quality import QualityRecord
+from app.models.teaching_plan import TeachingPlan
+from app.models.resource_favorite import ResourceFavorite
+from app.models.lesson_plan import LessonPlan
+from app.models.research import ResearchProject
+from app.models.message_subscription import MessageSubscription
+from app.models.region import Region
+from app.models.encryption_key import EncryptionKey
+from app.models.recommendation import Recommendation
+from app.models.learning_record import LearningRecord
 
 __all__ = [
     "User",
@@ -21,4 +36,19 @@ __all__ = [
     "Score",
     "Schedule",
     "Classroom",
+    "StudentProfile",
+    "TeacherProfile",
+    "OperationLog",
+    "LoginLog",
+    "DataAccessLog",
+    "QualityRecord",
+    "TeachingPlan",
+    "ResourceFavorite",
+    "LessonPlan",
+    "ResearchProject",
+    "MessageSubscription",
+    "Region",
+    "EncryptionKey",
+    "Recommendation",
+    "LearningRecord",
 ]

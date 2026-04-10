@@ -9,7 +9,7 @@ from jose import JWTError, jwt
 import bcrypt
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from sqlalchemy import select
+from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
@@ -98,13 +98,41 @@ async def get_current_user(
             status_code=status.HTTP_401_UNAUTHORIZED, detail="无效的用户信息"
         )
 
-    result = await db.execute(select(User).where(User.id == UUID(user_id)))
-    user = result.scalar_one_or_none()
+    username = payload.get("username")
+    if not username:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="无效的用户信息"
+        )
 
-    if not user:
+    result = await db.execute(
+        text("SELECT * FROM users WHERE username = :username"), {"username": username}
+    )
+    row = result.fetchone()
+
+    if not row:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED, detail="用户不存在"
         )
+
+    user = User(
+        id=row[0],
+        username=row[1],
+        email=row[2],
+        phone=row[3],
+        password_hash=row[4],
+        real_name=row[5],
+        avatar=row[6],
+        department_id=row[7],
+        position=row[8],
+        gender=row[9],
+        birth_date=row[10],
+        address=row[11],
+        nation=row[12],
+        id_card=row[13],
+        status=row[14],
+    )
+    user.created_at = row[17]
+    user.updated_at = row[18]
 
     if user.status != "active":
         raise HTTPException(

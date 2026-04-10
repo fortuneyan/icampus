@@ -39,7 +39,53 @@
           <el-menu-item index="/edu/courses">课程管理</el-menu-item>
           <el-menu-item index="/edu/scores">成绩管理</el-menu-item>
           <el-menu-item index="/edu/schedules">课表管理</el-menu-item>
+          <el-menu-item index="/edu/classrooms">教室管理</el-menu-item>
         </el-sub-menu>
+        
+        <el-sub-menu index="resource">
+          <template #title>
+            <el-icon><Document /></el-icon>
+            <span>资源管理</span>
+          </template>
+          <el-menu-item index="/resource/list">资源库</el-menu-item>
+        </el-sub-menu>
+        
+        <el-sub-menu index="ai">
+          <template #title>
+            <el-icon><MagicStick /></el-icon>
+            <span>AI服务</span>
+          </template>
+          <el-menu-item index="/ai/chat">智能对话</el-menu-item>
+        </el-sub-menu>
+        
+        <el-sub-menu index="exam">
+          <template #title>
+            <el-icon><Document /></el-icon>
+            <span>考试管理</span>
+          </template>
+          <el-menu-item index="/exam/list">考试列表</el-menu-item>
+        </el-sub-menu>
+        
+        <el-sub-menu index="attendance">
+          <template #title>
+            <el-icon><Clock /></el-icon>
+            <span>考勤管理</span>
+          </template>
+          <el-menu-item index="/attendance/list">考勤记录</el-menu-item>
+        </el-sub-menu>
+        
+        <el-sub-menu index="notice">
+          <template #title>
+            <el-icon><Bell /></el-icon>
+            <span>通知公告</span>
+          </template>
+          <el-menu-item index="/notice/list">通知列表</el-menu-item>
+        </el-sub-menu>
+        
+        <el-menu-item index="/settings">
+          <el-icon><Setting /></el-icon>
+          <span>系统设置</span>
+        </el-menu-item>
       </el-menu>
     </el-aside>
     
