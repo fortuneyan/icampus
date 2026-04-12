@@ -11,6 +11,7 @@ from app.core.database import get_db
 from app.core.security import get_current_user
 from app.core.exceptions import NotFoundException
 from app.models.user import User
+from app.models.resource import ResourceCategory
 from app.schemas.resource import ResourceCreate, ResourceUpdate, CategoryCreate
 from app.schemas.response import success, page_response
 from app.services.resource_service import ResourceService, CategoryService
@@ -18,19 +19,30 @@ from app.services.resource_service import ResourceService, CategoryService
 router = APIRouter()
 
 
+def _parse_uuid(value: Optional[str]) -> Optional[UUID]:
+    """安全解析UUID参数，空字符串返回None"""
+    if not value:
+        return None
+    try:
+        return UUID(value)
+    except (ValueError, AttributeError):
+        return None
+
+
 @router.get("/resources", response_model=dict)
 async def get_resources(
     keyword: Optional[str] = Query(None),
-    category_id: Optional[UUID] = Query(None),
+    category_id: Optional[str] = Query(None, description="分类ID"),
     resource_type: Optional[str] = Query(None),
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
+    parsed_category_id = _parse_uuid(category_id)
     service = ResourceService(db)
     result = await service.search_resources(
-        keyword, category_id, resource_type, page, page_size
+        keyword, parsed_category_id, resource_type, page, page_size
     )
     items = [
         {
@@ -105,12 +117,13 @@ async def delete_resource(
 
 @router.get("/categories", response_model=dict)
 async def get_categories(
-    parent_id: Optional[UUID] = Query(None),
+    parent_id: Optional[str] = Query(None, description="父分类ID"),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
+    parsed_parent_id = _parse_uuid(parent_id)
     service = CategoryService(db)
-    tree = await service.get_category_tree(parent_id)
+    tree = await service.get_category_tree(parsed_parent_id)
     return success(tree)
 
 
@@ -123,3 +136,23 @@ async def create_category(
     service = CategoryService(db)
     category = await service.create(data.model_dump())
     return success({"id": str(category.id)}, "创建成功")
+
+
+@router.get("/categories/options", response_model=dict)
+async def get_category_options(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """获取分类下拉选项（扁平列表）"""
+    from sqlalchemy import select
+    result = await db.execute(
+        select(ResourceCategory)
+        .where(ResourceCategory.status == "active")
+        .order_by(ResourceCategory.sort_order)
+    )
+    categories = result.scalars().all()
+    options = [
+        {"id": str(c.id), "label": c.name, "value": str(c.id)}
+        for c in categories
+    ]
+    return success(options)

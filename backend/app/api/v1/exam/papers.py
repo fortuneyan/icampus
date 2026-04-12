@@ -34,6 +34,7 @@ from app.services.paper_service import (
     ABPaperGenerator,
 )
 from app.core.database import get_db
+from app.schemas.response import success, page_response
 
 router = APIRouter(prefix="/papers", tags=["智能组卷"])
 
@@ -118,7 +119,7 @@ async def generate_ab_papers(
 # =============================================================================
 
 
-@router.get("", response_model=PaperListResponse, summary="试卷列表")
+@router.get("", summary="试卷列表")
 async def list_papers(
     page: int = Query(1, ge=1, description="页码"),
     page_size: int = Query(20, ge=1, le=100, description="每页数量"),
@@ -142,15 +143,15 @@ async def list_papers(
         keyword=keyword,
     )
 
-    return PaperListResponse(
-        items=[PaperResponse.model_validate(p) for p in papers],
-        total=total,
-        page=page,
-        page_size=page_size,
-    )
+    items = []
+    for p in papers:
+        item = PaperResponse.model_validate(p).model_dump()
+        items.append(item)
+
+    return page_response(items, total, page, page_size)
 
 
-@router.get("/statistics", response_model=PaperStatistics, summary="试卷统计")
+@router.get("/statistics", summary="试卷统计")
 async def get_statistics(
     service: PaperService = Depends(get_paper_service),
 ):
@@ -160,10 +161,10 @@ async def get_statistics(
     返回试卷总数、发布状态分布、类型分布等
     """
     stats = await service.get_statistics()
-    return PaperStatistics(**stats)
+    return success(PaperStatistics(**stats).model_dump())
 
 
-@router.get("/{paper_id}", response_model=PaperWithQuestions, summary="试卷详情")
+@router.get("/{paper_id}", summary="试卷详情")
 async def get_paper(
     paper_id: UUID,
     include_answers: bool = Query(True, description="包含答案"),
@@ -179,10 +180,10 @@ async def get_paper(
     if not paper_data:
         raise HTTPException(status_code=404, detail="试卷不存在")
 
-    return PaperWithQuestions(**paper_data)
+    return success(PaperWithQuestions(**paper_data).model_dump())
 
 
-@router.put("/{paper_id}", response_model=PaperResponse, summary="更新试卷")
+@router.put("/{paper_id}", summary="更新试卷")
 async def update_paper(
     paper_id: UUID,
     request: PaperUpdate,
@@ -198,7 +199,7 @@ async def update_paper(
     if not paper:
         raise HTTPException(status_code=404, detail="试卷不存在")
 
-    return PaperResponse.model_validate(paper)
+    return success(PaperResponse.model_validate(paper).model_dump())
 
 
 @router.delete("/{paper_id}", summary="删除试卷")
@@ -214,10 +215,10 @@ async def delete_paper(
     if not success:
         raise HTTPException(status_code=404, detail="试卷不存在")
 
-    return {"message": "删除成功"}
+    return success(message="删除成功")
 
 
-@router.post("/{paper_id}/publish", response_model=PaperResponse, summary="发布试卷")
+@router.post("/{paper_id}/publish", summary="发布试卷")
 async def publish_paper(
     paper_id: UUID,
     service: PaperService = Depends(get_paper_service),
@@ -232,10 +233,10 @@ async def publish_paper(
     if not paper:
         raise HTTPException(status_code=404, detail="试卷不存在")
 
-    return PaperResponse.model_validate(paper)
+    return success(PaperResponse.model_validate(paper).model_dump())
 
 
-@router.get("/{paper_id}/detail", response_model=PaperWithQuestions, summary="试卷详情(含题目)")
+@router.get("/{paper_id}/detail", summary="试卷详情(含题目)")
 async def get_paper_detail(
     paper_id: UUID,
     include_answers: bool = Query(True, description="包含答案"),
@@ -251,7 +252,7 @@ async def get_paper_detail(
     if not paper_data:
         raise HTTPException(status_code=404, detail="试卷不存在")
 
-    return PaperWithQuestions(**paper_data)
+    return success(PaperWithQuestions(**paper_data).model_dump())
 
 
 @router.get("/{paper_id}/export", summary="导出试卷")
@@ -273,4 +274,4 @@ async def export_paper(
     if not paper_data:
         raise HTTPException(status_code=404, detail="试卷不存在")
 
-    return paper_data
+    return success(paper_data)

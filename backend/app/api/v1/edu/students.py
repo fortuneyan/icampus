@@ -9,10 +9,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
 from app.core.security import get_current_user
+from app.core.exceptions import NotFoundException
 from app.models.user import User
 from app.models.student import Student
 from app.schemas.student import StudentCreate, StudentUpdate
 from app.schemas.response import success, page_response
+from app.services.student_service import StudentService
 
 router = APIRouter()
 
@@ -39,9 +41,11 @@ async def get_students(
     current_user: User = Depends(get_current_user),
 ):
     """获取学生列表"""
+    parsed_grade_id = parse_uuid(grade_id)
+    parsed_class_id = parse_uuid(class_id)
     student_service = StudentService(db)
     result = await student_service.search_students(
-        keyword, grade_id, class_id, status, page, page_size
+        keyword, parsed_grade_id, parsed_class_id, status, page, page_size
     )
 
     items = [

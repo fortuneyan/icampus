@@ -20,21 +20,32 @@ from app.schemas.response import success, page_response
 router = APIRouter()
 
 
+def _parse_uuid(value: Optional[str]) -> Optional[UUID]:
+    """安全解析UUID参数，空字符串返回None"""
+    if not value:
+        return None
+    try:
+        return UUID(value)
+    except (ValueError, AttributeError):
+        return None
+
+
 @router.get("", response_model=dict)
 async def get_classes(
     name: Optional[str] = Query(None),
-    grade_id: Optional[UUID] = Query(None),
+    grade_id: Optional[str] = Query(None, description="年级ID"),
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
     """获取班级列表"""
+    parsed_grade_id = _parse_uuid(grade_id)
     query = select(Class)
     if name:
         query = query.where(Class.name.like(f"%{name}%"))
-    if grade_id:
-        query = query.where(Class.grade_id == grade_id)
+    if parsed_grade_id:
+        query = query.where(Class.grade_id == parsed_grade_id)
 
     query = query.order_by(Class.created_at.desc())
 

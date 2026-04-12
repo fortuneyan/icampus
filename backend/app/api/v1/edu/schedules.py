@@ -6,7 +6,7 @@ from typing import Optional
 from uuid import UUID
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, func
 
 from app.core.database import get_db
 from app.core.security import get_current_user
@@ -62,13 +62,34 @@ async def get_schedules(
         query = query.where(Schedule.weekday == weekday)
 
     if week:
-        query = query.where(Schedule.week == week)
+        # week_range 是字符串如 "1-16"，用模糊匹配
+        query = query.where(Schedule.week_range.like(f"%{week}%"))
 
     if semester:
         query = query.where(Schedule.semester == semester)
 
-    total_result = await db.execute(query)
-    total = len(total_result.scalars().all())
+    # 计算总数
+    count_query = select(func.count()).select_from(Schedule)
+    if class_id:
+        uid = parse_uuid(class_id)
+        if uid:
+            count_query = count_query.where(Schedule.class_id == uid)
+    if teacher_id:
+        uid = parse_uuid(teacher_id)
+        if uid:
+            count_query = count_query.where(Schedule.teacher_id == uid)
+    if course_id:
+        uid = parse_uuid(course_id)
+        if uid:
+            count_query = count_query.where(Schedule.course_id == uid)
+    if weekday:
+        count_query = count_query.where(Schedule.weekday == weekday)
+    if week:
+        count_query = count_query.where(Schedule.week_range.like(f"%{week}%"))
+    if semester:
+        count_query = count_query.where(Schedule.semester == semester)
+    total_result = await db.execute(count_query)
+    total = total_result.scalar()
 
     offset = (page - 1) * page_size
     query = query.offset(offset).limit(page_size)
@@ -85,7 +106,6 @@ async def get_schedules(
             "weekday": s.weekday,
             "period_start": s.period_start,
             "period_end": s.period_end,
-            "week": s.week,
             "semester": s.semester,
             "week_range": s.week_range,
         }
@@ -123,7 +143,7 @@ async def get_class_schedule(
             "weekday": s.weekday,
             "period_start": s.period_start,
             "period_end": s.period_end,
-            "week": s.week,
+            "week_range": s.week_range,
         }
         for s in schedules
     ]
@@ -158,7 +178,7 @@ async def get_teacher_schedule(
             "weekday": s.weekday,
             "period_start": s.period_start,
             "period_end": s.period_end,
-            "week": s.week,
+            "week_range": s.week_range,
         }
         for s in schedules
     ]
@@ -189,7 +209,6 @@ async def get_schedule(
             "weekday": schedule.weekday,
             "period_start": schedule.period_start,
             "period_end": schedule.period_end,
-            "week": schedule.week,
             "semester": schedule.semester,
             "week_range": schedule.week_range,
         }
