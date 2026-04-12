@@ -1,5 +1,12 @@
 """
 智慧校园管理平台 - 后端入口
+
+路由结构说明：
+  基础管理 API: /api/v1/{module}       (认证/系统/教务/考勤/考试等)
+  AI 功能 API:  /api/v1/ai/{module}    (AI对话/学习诊断/教师助手/学习记录等)
+
+通过 main.py 中的两个独立 include_router 调用，
+使基础管理路由与 AI 功能路由在注册层面明确分离，便于独立维护和权限控制。
 """
 
 import logging
@@ -9,7 +16,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import settings
 from app.core.database import engine, Base
-from app.api.v1 import api_router
+from app.api.v1 import api_router, ai_api_router
 
 # 配置日志
 logging.basicConfig(
@@ -52,8 +59,14 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# 注册路由
+# ==================== 路由注册 ====================
+
+# 基础管理路由: /api/v1/{auth|system|edu|exam|attendance|...}
 app.include_router(api_router, prefix="/api/v1")
+
+# AI 功能路由: /api/v1/ai/{chat|learning|teacher|diagnosis|...}
+# 独立注册，与基础管理路由在代码层面明确分离
+app.include_router(ai_api_router, prefix="/api/v1")
 
 
 @app.get("/")
@@ -63,6 +76,10 @@ async def root():
         "message": "Welcome to Smart Campus API",
         "version": "1.0.0",
         "docs": "/docs",
+        "routes": {
+            "base_management": "/api/v1/{auth|system|edu|exam|attendance|...}",
+            "ai_features": "/api/v1/ai/{chat|learning|teacher|diagnosis|...}",
+        },
     }
 
 

@@ -7,6 +7,8 @@ from app.api.v1.system import (
     logs,
     regions,
     encryption,
+    dictionary,
+    monitor,
 )
 
 router = APIRouter()
@@ -20,3 +22,5 @@ router.include_router(
 router.include_router(logs.router, prefix="/logs", tags=["日志审计"])
 router.include_router(regions.router, prefix="/regions", tags=["地区管理"])
 router.include_router(encryption.router, prefix="/encryption-keys", tags=["加密密钥"])
+router.include_router(dictionary.router, prefix="", tags=["字典管理"])
+router.include_router(monitor.router, prefix="/monitor", tags=["服务监控"])

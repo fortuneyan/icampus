@@ -4,7 +4,7 @@
 
 from typing import Optional, List
 from uuid import UUID
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 
 
 class PaperCreate(BaseModel):
@@ -34,8 +34,7 @@ class PaperResponse(BaseModel):
     creator_id: Optional[UUID] = None
     status: str
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class QuestionCreate(BaseModel):
@@ -58,5 +57,4 @@ class QuestionResponse(BaseModel):
     difficulty: int
     score: float
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)

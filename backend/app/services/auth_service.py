@@ -11,6 +11,7 @@ from app.core.security import (
     verify_password,
     create_access_token,
     create_refresh_token,
+    decode_token,
 )
 from app.core.exceptions import UnauthorizedException
 import bcrypt
@@ -89,4 +90,29 @@ class AuthService:
                 "avatar": user.avatar,
                 "status": user.status,
             },
+        }
+
+    @staticmethod
+    async def refresh_token(refresh_token: str) -> dict:
+        """刷新令牌"""
+        payload = decode_token(refresh_token)
+
+        if not payload:
+            raise UnauthorizedException("令牌已失效")
+
+        if payload.get("type") != "refresh":
+            raise UnauthorizedException("无效的令牌类型")
+
+        user_id = payload.get("sub")
+        if not user_id:
+            raise UnauthorizedException("无效的用户信息")
+
+        access_token = create_access_token({"sub": user_id})
+        new_refresh_token = create_refresh_token({"sub": user_id})
+
+        return {
+            "access_token": access_token,
+            "refresh_token": new_refresh_token,
+            "token_type": "bearer",
+            "expires_in": 1440,
         }

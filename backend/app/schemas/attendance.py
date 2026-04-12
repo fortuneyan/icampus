@@ -4,7 +4,7 @@
 
 from typing import Optional
 from uuid import UUID
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 from datetime import datetime, time
 
 
@@ -37,8 +37,7 @@ class RuleResponse(BaseModel):
     location: Optional[str] = None
     status: str
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class CheckInRequest(BaseModel):
@@ -57,5 +56,4 @@ class RecordResponse(BaseModel):
     status: str
     remarks: Optional[str] = None
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)

@@ -5,6 +5,7 @@ AI智能助手接口
 from typing import Optional
 from uuid import UUID
 from fastapi import APIRouter, Depends, Query
+from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
@@ -28,6 +29,54 @@ async def chat(
         current_user.id, request.message, request.session_id, request.model_type
     )
     return success(result)
+
+
+async def stream_generator(user_id, request: ChatRequest, service: AIService):
+    """流式响应生成器"""
+    async for chunk in service.chat_stream(
+        user_id, request.message, request.session_id, request.model_type
+    ):
+        yield chunk
+
+
+@router.post("/chat/stream")
+async def chat_stream(
+    request: ChatRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    流式对话端点（Server-Sent Events）
+
+    返回 SSE 格式数据流：
+      data: {"type": "session_id", "value": "..."}\n\n
+      data: {"type": "content", "value": "..."}\n\n  （多个）
+      data: {"type": "done", "session_id": "..."}\n\n
+    前端示例：
+      const res = await fetch('/api/v1/ai/chat/stream', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ...' },
+        body: JSON.stringify({ message: '你好', model_type: 'deepseek' })
+      })
+      const reader = res.body.getReader()
+      const decoder = new TextDecoder()
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+        const text = decoder.decode(value)
+        // 解析 SSE: text.split('\\n\\n').forEach(...)
+      }
+    """
+    service = AIService(db)
+    return StreamingResponse(
+        stream_generator(current_user.id, request, service),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        },
+    )
 
 
 @router.get("/sessions", response_model=dict)

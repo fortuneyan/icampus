@@ -22,6 +22,24 @@ from app.models.region import Region
 from app.models.encryption_key import EncryptionKey
 from app.models.recommendation import Recommendation
 from app.models.learning_record import LearningRecord
+from app.models.question import Question, QuestionAnnotation, SimilarityCheckRecord
+from app.models.quality_score import (
+    QuestionQualityScore, 
+    QualityReviewRecord, 
+    QualityEvaluationPrompt,
+    QualityLevel,
+    ApprovalSuggestion,
+    ReviewPriority,
+    EvaluationMode,
+)
+from app.models.paper import Paper, PaperQuestion, PaperVersion
+from app.models.teaching_progress import TeachingProgress, ProgressUpdate, ProgressReport
+from app.models.textbook import Textbook, TextbookAdoption
+from app.models.attendance_rule import AttendanceRule
+from app.models.dashboard import ReportConfig, Message, SystemSetting
+from app.models.card import CampusCard, CardTransaction, AccessRecord, Merchant
+from app.models.dormitory import Dormitory, DormitoryRoom, DormitoryAssignment, DormitoryAttendance
+from app.models.scholarship import Scholarship, ScholarshipApplication, GrantRecord, PoorStudent
 
 __all__ = [
     "User",
@@ -51,4 +69,38 @@ __all__ = [
     "EncryptionKey",
     "Recommendation",
     "LearningRecord",
+    "Question",
+    "QuestionAnnotation",
+    "SimilarityCheckRecord",
+    "QuestionQualityScore",
+    "QualityReviewRecord",
+    "QualityEvaluationPrompt",
+    "QualityLevel",
+    "ApprovalSuggestion",
+    "ReviewPriority",
+    "EvaluationMode",
+    "Paper",
+    "PaperQuestion",
+    "PaperVersion",
+    "TeachingProgress",
+    "ProgressUpdate",
+    "ProgressReport",
+    "Textbook",
+    "TextbookAdoption",
+    "AttendanceRule",
+    "ReportConfig",
+    "Message",
+    "SystemSetting",
+    "CampusCard",
+    "CardTransaction",
+    "AccessRecord",
+    "Merchant",
+    "Dormitory",
+    "DormitoryRoom",
+    "DormitoryAssignment",
+    "DormitoryAttendance",
+    "Scholarship",
+    "ScholarshipApplication",
+    "GrantRecord",
+    "PoorStudent",
 ]

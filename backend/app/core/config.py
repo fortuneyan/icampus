@@ -30,12 +30,12 @@ class Settings(BaseSettings):
     POSTGRES_DB: str = "postgres"
     POSTGRES_HOST: str = "localhost"
     POSTGRES_PORT: int = 5432
-    DATABASE_URL: str = ""
+    _database_url: str = ""
 
     @property
     def DATABASE_URL(self) -> str:
-        if self.DATABASE_URL:
-            return self.DATABASE_URL
+        if self._database_url:
+            return self._database_url
         return f"postgresql+asyncpg://{self.POSTGRES_USER}:{self.POSTGRES_PASSWORD}@{self.POSTGRES_HOST}:{self.POSTGRES_PORT}/{self.POSTGRES_DB}"
 
     DATABASE_ECHO: bool = False

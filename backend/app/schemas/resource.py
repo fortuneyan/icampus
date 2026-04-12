@@ -4,7 +4,7 @@
 
 from typing import Optional
 from uuid import UUID
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 
 
 class ResourceCreate(BaseModel):
@@ -47,8 +47,7 @@ class ResourceResponse(BaseModel):
     status: str
     tags: Optional[str] = None
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class CategoryCreate(BaseModel):
@@ -66,5 +65,4 @@ class CategoryResponse(BaseModel):
     icon: Optional[str] = None
     status: str
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
