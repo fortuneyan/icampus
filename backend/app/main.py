@@ -13,9 +13,11 @@ import logging
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy import text
 
 from app.core.config import settings
-from app.core.database import engine, Base
+from app.core.database import engine, Base, async_session_factory
+from app.core.security import get_password_hash
 from app.api.v1 import api_router, ai_api_router
 
 # 配置日志
@@ -23,6 +25,31 @@ logging.basicConfig(
     level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 )
 logger = logging.getLogger(__name__)
+
+
+async def _init_seed_data():
+    """初始化种子数据（仅在 users 表为空时执行）"""
+    async with async_session_factory() as session:
+        result = await session.execute(text("SELECT COUNT(*) FROM users"))
+        count = result.scalar()
+        if count > 0:
+            logger.info("数据库已有用户数据，跳过种子初始化")
+            return
+
+        from uuid import uuid4
+        from app.models.user import User
+
+        admin_user = User(
+            id=uuid4(),
+            username="admin",
+            email="admin@smartcampus.edu",
+            password_hash=get_password_hash("admin123"),
+            real_name="系统管理员",
+            status="active",
+        )
+        session.add(admin_user)
+        await session.commit()
+        logger.info("种子用户 admin/admin123 初始化成功")
 
 
 @asynccontextmanager
@@ -33,6 +60,13 @@ async def lifespan(app: FastAPI):
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
     logger.info("Database tables created successfully")
+
+    # 初始化种子数据
+    try:
+        await _init_seed_data()
+    except Exception as e:
+        logger.warning(f"种子数据初始化失败（非致命）: {e}")
+
     yield
     # 关闭时
     logger.info("Shutting down Smart Campus Platform...")
