@@ -170,11 +170,16 @@ const handleSubmit = async () => {
 
 const handleResetPwd = async (row: any) => {
   try {
-    await ElMessageBox.prompt('请输入新密码', '重置密码', { confirmButtonText: '确定', cancelButtonText: '取消' })
     const { value } = await ElMessageBox.prompt('请输入新密码', '重置密码', { confirmButtonText: '确定', cancelButtonText: '取消' })
-    await resetPassword(row.id, value || '123456')
+    if (!value) {
+      ElMessage.warning('密码不能为空')
+      return
+    }
+    await resetPassword(row.id, value)
     ElMessage.success('密码重置成功')
-  } catch (e) {}
+  } catch (e: any) {
+    if (e !== 'cancel') ElMessage.error(e.message || '操作失败')
+  }
 }
 
 const handleDelete = async (row: any) => {

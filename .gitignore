@@ -4,3 +4,6 @@ node_modules/
 backend/app/__pycache__/
 backend/.env
 frontend/dist/
+docs/
+frontend/tests/
+backend/test_*

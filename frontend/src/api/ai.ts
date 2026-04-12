@@ -1,42 +1,17 @@
-import request from '@/utils/request'
+/**
+ * @deprecated 此文件已迁移到 `@/api/ai/` 目录下，请从对应子模块导入
+ *
+ * - 对话相关: import { ... } from '@/api/ai/chat'
+ * - 学习记录: import { ... } from '@/api/ai/learning_record'
+ * - 教师助手: import { ... } from '@/api/ai/teacher'
+ * - 学习诊断: import { ... } from '@/api/ai/diagnosis'
+ * - 学习Agent: import learningAgentAPI from '@/api/ai/learning'
+ *
+ * 此文件保留以兼容现有引用，后续请逐步迁移。
+ */
 
-export interface ChatMessage {
-  role: 'user' | 'assistant'
-  content: string
-  time?: string
-}
-
-export interface ChatSession {
-  id: string
-  title: string
-  model: string
-  created_at: string
-}
-
-export function getChatSessions() {
-  return request.get('/ai/sessions')
-}
-
-export function createSession(data: { title: string; model?: string }) {
-  return request.post('/ai/sessions', data)
-}
-
-export function deleteSession(sessionId: string) {
-  return request.delete(`/ai/sessions/${sessionId}`)
-}
-
-export function getSessionMessages(sessionId: string) {
-  return request.get(`/ai/sessions/${sessionId}/messages`)
-}
-
-export function sendMessage(data: { session_id?: string; message: string; model?: string }) {
-  return request.post('/ai/chat', data)
-}
-
-export function getAIConfig() {
-  return request.get('/ai/config')
-}
-
-export function updateAIConfig(data: { default_model?: string; api_key?: string }) {
-  return request.put('/ai/config', data)
-}
+export * from './ai/chat'
+export * from './ai/learning_record'
+export * from './ai/teacher'
+export * from './ai/diagnosis'
+export { learningAgentAPI } from './ai/learning'

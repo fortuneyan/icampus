@@ -128,6 +128,7 @@ import { getScheduleList, createSchedule, updateSchedule, deleteSchedule } from 
 import { getClassOptions } from '@/api/edu/class'
 import { getCourseOptions } from '@/api/edu/course'
 import { getTeacherOptions } from '@/api/edu/grade'
+import { getClassroomOptions } from '@/api/edu/classroom'
 
 const loading = ref(false)
 const tableData = ref([])
@@ -137,7 +138,7 @@ const pagination = reactive({ page: 1, pageSize: 20, total: 0 })
 const classOptions = ref<any[]>([])
 const courseOptions = ref<any[]>([])
 const teacherOptions = ref<any[]>([])
-const roomOptions = ref<any[]>([{ value: '101', label: '101教室' }, { value: '102', label: '102教室' }, { value: '201', label: '201教室' }, { value: '202', label: '202教室' }])
+const roomOptions = ref<any[]>([])
 
 const dialogVisible = ref(false)
 const dialogTitle = ref('')
@@ -183,6 +184,13 @@ const fetchTeachers = async () => {
   } catch (e) { console.error(e) }
 }
 
+const fetchRooms = async () => {
+  try {
+    const res = await getClassroomOptions('active')
+    roomOptions.value = res.data || []
+  } catch (e) { console.error(e) }
+}
+
 const getClassName = (id: string) => classOptions.value.find(c => c.value === id)?.label || ''
 const getCourseName = (id: string) => courseOptions.value.find(c => c.value === id)?.label || ''
 const getTeacherName = (id: string) => teacherOptions.value.find(t => t.value === id)?.label || ''
@@ -224,7 +232,7 @@ const handleDelete = async (row: any) => {
   } catch (e: any) { if (e !== 'cancel') ElMessage.error(e.message || '删除失败') }
 }
 
-onMounted(() => { fetchClasses(); fetchCourses(); fetchTeachers(); fetchData() })
+onMounted(() => { fetchClasses(); fetchCourses(); fetchTeachers(); fetchRooms(); fetchData() })
 </script>
 
 <style scoped lang="scss">

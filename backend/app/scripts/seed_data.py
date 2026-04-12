@@ -252,12 +252,13 @@ def random_id_card(birth_date: date, gender: str) -> str:
     """生成18位身份证号（地区码用440400=珠海）"""
     area = "440400"                       # 6位
     birth_str = birth_date.strftime("%Y%m%d")  # 8位
-    seq = random.randint(100, 999)        # 3位顺序码
+    # 生成3位顺序码，确保奇偶性与性别匹配，且不会溢出到4位
+    seq = random.randint(100, 998)
     if gender == "male":
         seq = seq if seq % 2 == 1 else seq + 1
     else:
-        seq = seq if seq % 2 == 0 else seq + 1
-    body = area + birth_str + str(seq)    # 6+8+3=17位
+        seq = seq if seq % 2 == 0 else seq - 1  # 用 -1 避免溢出
+    body = area + birth_str + f"{seq:03d}"  # 6+8+3=17位，强制3位
     # 校验码
     weights = [7,9,10,5,8,4,2,1,6,3,7,9,10,5,8,4,2]
     check_chars = "10X98765432"

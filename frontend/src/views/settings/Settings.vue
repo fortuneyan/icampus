@@ -17,7 +17,7 @@
               <span>通知设置</span>
             </el-menu-item>
             <el-menu-item index="about">
-              <el-icon><Info /></el-icon>
+              <el-icon><InfoFilled /></el-icon>
               <span>关于系统</span>
             </el-menu-item>
           </el-menu>
@@ -25,17 +25,18 @@
       </el-col>
       
       <el-col :span="18">
+        <!-- 基本设置 -->
         <el-card v-if="activeMenu === 'basic'">
           <template #header>基本设置</template>
           <el-form :model="basicForm" label-width="120px">
             <el-form-item label="系统名称">
-              <el-input v-model="basicForm.system_name" />
+              <el-input v-model="basicForm.system_name" placeholder="请输入系统名称" />
             </el-form-item>
             <el-form-item label="学校名称">
-              <el-input v-model="basicForm.school_name" />
+              <el-input v-model="basicForm.school_name" placeholder="请输入学校名称" />
             </el-form-item>
             <el-form-item label="学年制">
-              <el-select v-model="basicForm.academic_year_system">
+              <el-select v-model="basicForm.academic_year_system" placeholder="请选择学年制">
                 <el-option label="秋季入学" value="autumn" />
                 <el-option label="春季入学" value="spring" />
               </el-select>
@@ -44,16 +45,17 @@
               <el-input-number v-model="basicForm.semester_count" :min="2" :max="4" />
             </el-form-item>
             <el-form-item>
-              <el-button type="primary" @click="handleSaveBasic">保存</el-button>
+              <el-button type="primary" :loading="basicLoading" @click="handleSaveBasic">保存</el-button>
             </el-form-item>
           </el-form>
         </el-card>
         
+        <!-- 安全设置 -->
         <el-card v-if="activeMenu === 'security'">
           <template #header>安全设置</template>
           <el-form :model="securityForm" label-width="120px">
             <el-form-item label="密码强度">
-              <el-select v-model="securityForm.password_strength">
+              <el-select v-model="securityForm.password_strength" placeholder="请选择密码强度">
                 <el-option label="低" value="low" />
                 <el-option label="中" value="medium" />
                 <el-option label="高" value="high" />
@@ -68,11 +70,12 @@
               <span style="margin-left: 10px">分钟</span>
             </el-form-item>
             <el-form-item>
-              <el-button type="primary" @click="handleSaveSecurity">保存</el-button>
+              <el-button type="primary" :loading="securityLoading" @click="handleSaveSecurity">保存</el-button>
             </el-form-item>
           </el-form>
         </el-card>
         
+        <!-- 通知设置 -->
         <el-card v-if="activeMenu === 'notification'">
           <template #header>通知设置</template>
           <el-form :model="notificationForm" label-width="150px">
@@ -89,16 +92,18 @@
               <el-switch v-model="notificationForm.score_notify_parent" />
             </el-form-item>
             <el-form-item>
-              <el-button type="primary" @click="handleSaveNotification">保存</el-button>
+              <el-button type="primary" :loading="notificationLoading" @click="handleSaveNotification">保存</el-button>
             </el-form-item>
           </el-form>
         </el-card>
         
+        <!-- 关于系统 -->
         <el-card v-if="activeMenu === 'about'">
           <template #header>关于系统</template>
-          <el-descriptions :column="1" border>
-            <el-descriptions-item label="系统名称">智慧校园管理平台</el-descriptions-item>
-            <el-descriptions-item label="版本号">v1.0.0</el-descriptions-item>
+          <el-skeleton :rows="5" v-if="systemInfoLoading" />
+          <el-descriptions v-else :column="1" border>
+            <el-descriptions-item label="系统名称">{{ systemInfo.app_name || '智慧校园管理平台' }}</el-descriptions-item>
+            <el-descriptions-item label="版本号">{{ systemInfo.app_version || 'v1.0.0' }}</el-descriptions-item>
             <el-descriptions-item label="技术栈">Python FastAPI + Vue3 + PostgreSQL</el-descriptions-item>
             <el-descriptions-item label="开发日期">2026-04-09</el-descriptions-item>
             <el-descriptions-item label="依据标准">JY/T 0641-2022, JY/T 0650-2022, JY/T 0643-2025, JY/T 0661-2025</el-descriptions-item>
@@ -110,11 +115,18 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive } from 'vue'
+import { ref, reactive, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
-import { Setting, Lock, Bell, Info } from '@element-plus/icons-vue'
+import { Setting, Lock, Bell, InfoFilled } from '@element-plus/icons-vue'
+import { getConfig, updateConfig, getSystemInfo } from '@/api/settings'
 
 const activeMenu = ref('basic')
+const basicLoading = ref(false)
+const securityLoading = ref(false)
+const notificationLoading = ref(false)
+const systemInfoLoading = ref(false)
+
+const systemInfo = reactive<Record<string, string>>({})
 
 const basicForm = reactive({
   system_name: '智慧校园管理平台',
@@ -138,19 +150,107 @@ const notificationForm = reactive({
 
 const handleMenuSelect = (index: string) => {
   activeMenu.value = index
+  if (index === 'about' && Object.keys(systemInfo).length === 0) {
+    loadSystemInfo()
+  }
 }
 
-const handleSaveBasic = () => {
-  ElMessage.success('基本设置已保存')
+// 加载配置
+const loadConfig = async () => {
+  try {
+    const res = await getConfig()
+    if (res.code === 200 && res.data) {
+      const configs = Array.isArray(res.data) ? res.data : [res.data]
+      configs.forEach((item: any) => {
+        if (item.setting_key) {
+          // 根据key映射到表单
+          switch (item.setting_key) {
+            case 'system_name':
+              basicForm.system_name = item.setting_value
+              break
+            case 'school_name':
+              basicForm.school_name = item.setting_value
+              break
+            case 'academic_year_system':
+              basicForm.academic_year_system = item.setting_value
+              break
+            case 'semester_count':
+              basicForm.semester_count = parseInt(item.setting_value) || 2
+              break
+          }
+        }
+      })
+    }
+  } catch (error) {
+    console.error('加载配置失败:', error)
+  }
 }
 
-const handleSaveSecurity = () => {
-  ElMessage.success('安全设置已保存')
+// 保存基本设置
+const handleSaveBasic = async () => {
+  basicLoading.value = true
+  try {
+    await updateConfig({ setting_key: 'system_name', setting_value: basicForm.system_name, value_type: 'string' })
+    await updateConfig({ setting_key: 'school_name', setting_value: basicForm.school_name, value_type: 'string' })
+    await updateConfig({ setting_key: 'academic_year_system', setting_value: basicForm.academic_year_system, value_type: 'string' })
+    await updateConfig({ setting_key: 'semester_count', setting_value: String(basicForm.semester_count), value_type: 'int' })
+    ElMessage.success('基本设置已保存')
+  } catch (error) {
+    console.error('保存失败:', error)
+  } finally {
+    basicLoading.value = false
+  }
 }
 
-const handleSaveNotification = () => {
-  ElMessage.success('通知设置已保存')
+// 保存安全设置
+const handleSaveSecurity = async () => {
+  securityLoading.value = true
+  try {
+    await updateConfig({ setting_key: 'password_strength', setting_value: securityForm.password_strength, value_type: 'string' })
+    await updateConfig({ setting_key: 'max_login_attempts', setting_value: String(securityForm.max_login_attempts), value_type: 'int' })
+    await updateConfig({ setting_key: 'session_timeout', setting_value: String(securityForm.session_timeout), value_type: 'int' })
+    ElMessage.success('安全设置已保存')
+  } catch (error) {
+    console.error('保存失败:', error)
+  } finally {
+    securityLoading.value = false
+  }
 }
+
+// 保存通知设置
+const handleSaveNotification = async () => {
+  notificationLoading.value = true
+  try {
+    await updateConfig({ setting_key: 'email_enabled', setting_value: String(notificationForm.email_enabled), value_type: 'boolean' })
+    await updateConfig({ setting_key: 'sms_enabled', setting_value: String(notificationForm.sms_enabled), value_type: 'boolean' })
+    await updateConfig({ setting_key: 'system_enabled', setting_value: String(notificationForm.system_enabled), value_type: 'boolean' })
+    await updateConfig({ setting_key: 'score_notify_parent', setting_value: String(notificationForm.score_notify_parent), value_type: 'boolean' })
+    ElMessage.success('通知设置已保存')
+  } catch (error) {
+    console.error('保存失败:', error)
+  } finally {
+    notificationLoading.value = false
+  }
+}
+
+// 加载系统信息
+const loadSystemInfo = async () => {
+  systemInfoLoading.value = true
+  try {
+    const res = await getSystemInfo()
+    if (res.code === 200) {
+      Object.assign(systemInfo, res.data)
+    }
+  } catch (error) {
+    console.error('加载系统信息失败:', error)
+  } finally {
+    systemInfoLoading.value = false
+  }
+}
+
+onMounted(() => {
+  loadConfig()
+})
 </script>
 
 <style scoped lang="scss">

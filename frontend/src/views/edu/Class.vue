@@ -112,8 +112,8 @@
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import type { FormInstance } from 'element-plus'
-import { getClassList, createClass, updateClass, deleteClass, getGradeOptions } from '@/api/edu/class'
-import { getTeacherOptions } from '@/api/edu/grade'
+import { getClassList, createClass, updateClass, deleteClass } from '@/api/edu/class'
+import { getGradeOptions, getTeacherOptions } from '@/api/edu/grade'
 
 const loading = ref(false)
 const tableData = ref([])
