@@ -194,10 +194,32 @@ const handleFileChange = (file: any) => {
   // 提取文件名（不含扩展名）
   const fileName = file.name
   const nameWithoutExt = fileName.replace(/\.[^/.]+$/, '')
+  const ext = fileName.split('.').pop()?.toLowerCase() || ''
   
   // 如果标题为空，自动填入文件名
   if (!formData.title) {
     formData.title = nameWithoutExt
+  }
+  
+  // 根据扩展名自动识别资源类型
+  const typeMap: Record<string, string> = {
+    // 视频
+    mp4: 'video', avi: 'video', mov: 'video', wmv: 'video', flv: 'video', mkv: 'video',
+    // 音频
+    mp3: 'audio', wav: 'audio', wma: 'audio', ogg: 'audio', aac: 'audio', flac: 'audio',
+    // 图片
+    jpg: 'image', jpeg: 'image', png: 'image', gif: 'image', bmp: 'image', webp: 'image', svg: 'image',
+    // 文档
+    pdf: 'document', doc: 'document', docx: 'document', xls: 'document', xlsx: 'document', 
+    ppt: 'document', pptx: 'document', txt: 'document', rtf: 'document'
+  }
+  
+  // 如果当前是默认的 document 类型，则根据扩展名自动切换
+  if (formData.resource_type === 'document') {
+    const detectedType = typeMap[ext]
+    if (detectedType) {
+      formData.resource_type = detectedType
+    }
   }
   
   // 追加到描述中
