@@ -189,8 +189,24 @@ const handleAudit = async (row: any) => {
   } catch (e: any) { if (e !== 'cancel') ElMessage.error(e.message || '操作失败') }
 }
 
-const handleFileChange = () => {
+const handleFileChange = (file: any) => {
   hasSelectedFile.value = true
+  // 提取文件名（不含扩展名）
+  const fileName = file.name
+  const nameWithoutExt = fileName.replace(/\.[^/.]+$/, '')
+  
+  // 如果标题为空，自动填入文件名
+  if (!formData.title) {
+    formData.title = nameWithoutExt
+  }
+  
+  // 追加到描述中
+  const fileInfo = `文件名：${fileName}`
+  if (formData.description) {
+    formData.description = formData.description + '\n' + fileInfo
+  } else {
+    formData.description = fileInfo
+  }
 }
 
 const handleSubmit = async () => {
