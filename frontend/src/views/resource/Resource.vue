@@ -90,9 +90,14 @@
         </el-form-item>
         <el-form-item label="文件">
           <el-upload
+            ref="uploadRef"
             class="upload-demo"
             drag
             action="/api/v1/resource/resources/upload"
+            :headers="uploadHeaders"
+            :auto-upload="false"
+            :limit="1"
+            :on-change="handleFileChange"
             :on-success="handleUploadSuccess"
             :on-error="handleUploadError"
           >
@@ -121,12 +126,19 @@ const tableData = ref([])
 const searchForm = reactive({ keyword: '', resource_type: '', category_id: '' })
 const pagination = reactive({ page: 1, pageSize: 20, total: 0 })
 
+// 上传请求头（携带 token）
+const uploadHeaders = {
+  Authorization: `Bearer ${localStorage.getItem('token') || ''}`
+}
+
 const categoryOptions = ref<any[]>([])
 
 const dialogVisible = ref(false)
 const dialogTitle = ref('')
 const formRef = ref<FormInstance>()
+const uploadRef = ref<any>(null)
 const formData = reactive<any>({ id: '', title: '', resource_type: 'document', category_id: '', description: '', file_url: '' })
+const hasSelectedFile = ref(false)
 
 const formRules = {
   title: [{ required: true, message: '请输入标题', trigger: 'blur' }],
@@ -157,6 +169,11 @@ const handleReset = () => { searchForm.keyword = ''; searchForm.resource_type = 
 
 const handleAdd = () => {
   Object.assign(formData, { id: '', title: '', resource_type: 'document', category_id: '', description: '', file_url: '' })
+  hasSelectedFile.value = false
+  // 清空上传组件的文件列表
+  if (uploadRef.value) {
+    uploadRef.value.clearFiles()
+  }
   dialogTitle.value = '上传资源'
   dialogVisible.value = true
 }
@@ -172,13 +189,30 @@ const handleAudit = async (row: any) => {
   } catch (e: any) { if (e !== 'cancel') ElMessage.error(e.message || '操作失败') }
 }
 
+const handleFileChange = () => {
+  hasSelectedFile.value = true
+}
+
 const handleSubmit = async () => {
   if (!formRef.value) return
   await formRef.value.validate()
+  
+  // 如果有选择文件，先上传文件
+  if (hasSelectedFile.value && uploadRef.value) {
+    uploadRef.value.submit()
+    return
+  }
+  
+  // 没有文件直接创建资源
+  await submitResource()
+}
+
+const submitResource = async () => {
   try {
     await createResource(formData)
     ElMessage.success('创建成功')
     dialogVisible.value = false
+    hasSelectedFile.value = false
     fetchData()
   } catch (e: any) { ElMessage.error(e.message || '操作失败') }
 }
@@ -194,7 +228,9 @@ const handleDelete = async (row: any) => {
 
 const handleUploadSuccess = (response: any) => {
   formData.file_url = response.data.url
-  ElMessage.success('上传成功')
+  ElMessage.success('文件上传成功')
+  // 文件上传成功后，创建资源记录
+  submitResource()
 }
 
 const handleUploadError = () => {

@@ -14,8 +14,8 @@ class ResourceCreate(BaseModel):
     file_url: Optional[str] = None
     file_size: Optional[int] = None
     duration: Optional[int] = None
-    category_id: Optional[UUID] = None
-    course_id: Optional[UUID] = None
+    category_id: Optional[str] = None  # 改为 str 类型，后端自行处理空字符串
+    course_id: Optional[str] = None    # 改为 str 类型，后端自行处理空字符串
     tags: Optional[str] = Field(None, max_length=200)
     status: str = "published"
 

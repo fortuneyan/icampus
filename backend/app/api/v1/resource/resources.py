@@ -2,14 +2,17 @@
 资源管理接口
 """
 
+import os
+import uuid
 from typing import Optional
 from uuid import UUID
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, UploadFile, File
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
 from app.core.security import get_current_user
 from app.core.exceptions import NotFoundException
+from app.core.config import settings
 from app.models.user import User
 from app.models.resource import ResourceCategory
 from app.schemas.resource import ResourceCreate, ResourceUpdate, CategoryCreate
@@ -88,7 +91,11 @@ async def create_resource(
     current_user: User = Depends(get_current_user),
 ):
     service = ResourceService(db)
-    resource = await service.create_resource(data.model_dump(), current_user.id)
+    # 处理空字符串 ID
+    resource_data = data.model_dump()
+    resource_data['category_id'] = _parse_uuid(resource_data.get('category_id'))
+    resource_data['course_id'] = _parse_uuid(resource_data.get('course_id'))
+    resource = await service.create_resource(resource_data, current_user.id)
     return success({"id": str(resource.id)}, "创建成功")
 
 
@@ -100,7 +107,13 @@ async def update_resource(
     current_user: User = Depends(get_current_user),
 ):
     service = ResourceService(db)
-    resource = await service.update(id, data.model_dump(exclude_unset=True))
+    # 处理空字符串 ID
+    update_data = data.model_dump(exclude_unset=True)
+    if 'category_id' in update_data:
+        update_data['category_id'] = _parse_uuid(update_data['category_id'])
+    if 'course_id' in update_data:
+        update_data['course_id'] = _parse_uuid(update_data['course_id'])
+    resource = await service.update(id, update_data)
     return success({"id": str(resource.id)}, "更新成功")
 
 
@@ -156,3 +169,44 @@ async def get_category_options(
         for c in categories
     ]
     return success(options)
+
+
+@router.post("/resources/upload", response_model=dict)
+async def upload_resource_file(
+    file: UploadFile = File(...),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    上传资源文件
+    - 保存文件到上传目录
+    - 返回文件URL和大小
+    """
+    # 确保上传目录存在
+    upload_dir = settings.UPLOAD_DIR
+    os.makedirs(upload_dir, exist_ok=True)
+    
+    # 生成唯一文件名
+    file_ext = os.path.splitext(file.filename)[1]
+    unique_filename = f"{uuid.uuid4().hex}{file_ext}"
+    file_path = os.path.join(upload_dir, unique_filename)
+    
+    # 保存文件
+    try:
+        content = await file.read()
+        with open(file_path, "wb") as f:
+            f.write(content)
+        
+        file_size = len(content)
+        file_url = f"/uploads/{unique_filename}"
+        
+        return success({
+            "filename": file.filename,
+            "url": file_url,
+            "size": file_size,
+        }, "上传成功")
+    except Exception as e:
+        # 清理已保存的文件
+        if os.path.exists(file_path):
+            os.remove(file_path)
+        raise e
