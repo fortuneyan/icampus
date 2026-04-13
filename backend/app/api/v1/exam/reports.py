@@ -7,6 +7,8 @@ from typing import Optional, List, Dict, Any
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel, Field
 
+from app.schemas.response import success
+
 from app.services.score_report_service import (
     score_report_service, ReportType, GradeLevel,
     StudentScore, StudentReport, ClassReport,
@@ -99,16 +101,12 @@ async def add_student_score(request: StudentScoreInput):
         full_score=request.full_score
     )
 
-    return {
-        "code": 0,
-        "message": "录入成功",
-        "data": {
-            "student_id": score.student_id,
-            "score": score.score,
-            "grade_level": score.grade_level.value,
-            "is_pass": score.is_pass()
-        }
-    }
+    return success({
+        "student_id": score.student_id,
+        "score": score.score,
+        "grade_level": score.grade_level.value,
+        "is_pass": score.is_pass()
+    }, message="录入成功")
 
 
 @router.get("/scores/{student_id}", summary="获取学生成绩列表")
@@ -119,10 +117,7 @@ async def get_student_scores(
     """获取学生成绩列表"""
     scores = score_report_service.get_student_scores(student_id, academic_year)
 
-    return {
-        "code": 0,
-        "message": "获取成功",
-        "data": [
+    return success([
             {
                 "student_id": s.student_id,
                 "student_name": s.student_name,
@@ -137,8 +132,7 @@ async def get_student_scores(
                 "is_pass": s.is_pass()
             }
             for s in scores
-        ]
-    }
+        ], message="获取成功")
 
 
 # ==================== 学生报表接口 ====================
@@ -153,10 +147,7 @@ async def generate_student_report(request: StudentReportRequest):
         semester=request.semester
     )
 
-    return {
-        "code": 0,
-        "message": "生成成功",
-        "data": {
+    return success({
             "student_id": report.student_id,
             "student_name": report.student_name,
             "academic_year": report.academic_year,
@@ -180,8 +171,7 @@ async def generate_student_report(request: StudentReportRequest):
             },
             "class_rank": report.class_rank,
             "grade_rank": report.grade_rank
-        }
-    }
+        }, message="生成成功")
 
 
 @router.get("/student/{student_id}/summary", summary="获取学生成绩摘要")
@@ -198,18 +188,14 @@ async def get_student_summary(
         semester=semester
     )
 
-    return {
-        "code": 0,
-        "message": "获取成功",
-        "data": {
+    return success({
             "student_id": report.student_id,
             "average_score": report.average_score,
             "gpa": report.gpa,
             "pass_rate": report.get_pass_rate(),
             "class_rank": report.class_rank,
             "grade_rank": report.grade_rank
-        }
-    }
+        }, message="获取成功")
 
 
 # ==================== 班级报表接口 ====================
@@ -225,10 +211,7 @@ async def generate_class_report(request: ClassReportRequest):
         student_ids=request.student_ids
     )
 
-    return {
-        "code": 0,
-        "message": "生成成功",
-        "data": {
+    return success({
             "class_id": report.class_id,
             "class_name": report.class_name,
             "academic_year": report.academic_year,
@@ -245,8 +228,7 @@ async def generate_class_report(request: ClassReportRequest):
             "excellent_rate": report.excellent_rate,
             "subject_averages": report.subject_averages,
             "score_distribution": report.score_distribution
-        }
-    }
+        }, message="生成成功")
 
 
 @router.get("/class/{class_id}", summary="获取班级报表")
@@ -257,17 +239,13 @@ async def get_class_report(class_id: int):
     if not report:
         raise HTTPException(status_code=404, detail="班级报表不存在")
 
-    return {
-        "code": 0,
-        "message": "获取成功",
-        "data": {
+    return success({
             "class_id": report.class_id,
             "class_name": report.class_name,
             "class_average": report.class_average,
             "pass_rate": report.pass_rate,
             "excellent_rate": report.excellent_rate
-        }
-    }
+        }, message="获取成功")
 
 
 # ==================== 科目报表接口 ====================
@@ -282,10 +260,7 @@ async def generate_subject_report(request: SubjectReportRequest):
         semester=request.semester
     )
 
-    return {
-        "code": 0,
-        "message": "生成成功",
-        "data": {
+    return success({
             "subject_id": report.subject_id,
             "subject_name": report.subject_name,
             "academic_year": report.academic_year,
@@ -302,8 +277,7 @@ async def generate_subject_report(request: SubjectReportRequest):
             "good_rate": report.good_rate,
             "average_rate": report.average_rate,
             "score_distribution": report.score_distribution
-        }
-    }
+        }, message="生成成功")
 
 
 # ==================== 考试报表接口 ====================
@@ -319,10 +293,7 @@ async def generate_exam_report(request: ExamReportRequest):
         exam_date=request.exam_date
     )
 
-    return {
-        "code": 0,
-        "message": "生成成功",
-        "data": {
+    return success({
             "exam_id": report.exam_id,
             "exam_name": report.exam_name,
             "academic_year": report.academic_year,
@@ -340,8 +311,7 @@ async def generate_exam_report(request: ExamReportRequest):
             "subject_analysis": report.subject_analysis,
             "difficulty_index": report.difficulty_index,
             "discrimination_index": report.discrimination_index
-        }
-    }
+        }, message="生成成功")
 
 
 # ==================== 趋势分析接口 ====================
@@ -355,10 +325,7 @@ async def generate_trend_report(request: TrendReportRequest):
         academic_year=request.academic_year
     )
 
-    return {
-        "code": 0,
-        "message": "生成成功",
-        "data": {
+    return success({
             "student_id": report.student_id,
             "student_name": report.student_name,
             "academic_year": report.academic_year,
@@ -368,8 +335,7 @@ async def generate_trend_report(request: TrendReportRequest):
             "improvement_rate": report.improvement_rate,
             "volatility": report.volatility,
             "predicted_next": report.predicted_next
-        }
-    }
+        }, message="生成成功")
 
 
 # ==================== 对比分析接口 ====================
@@ -383,14 +349,10 @@ async def compare_students(request: CompareStudentsRequest):
         semester=request.semester
     )
 
-    return {
-        "code": 0,
-        "message": "对比成功",
-        "data": {
+    return success({
             "total": len(results),
             "items": results
-        }
-    }
+        }, message="对比成功")
 
 
 @router.post("/compare/classes", summary="班级对比分析")
@@ -402,14 +364,10 @@ async def compare_classes(request: CompareClassesRequest):
         semester=request.semester
     )
 
-    return {
-        "code": 0,
-        "message": "对比成功",
-        "data": {
+    return success({
             "total": len(results),
             "items": results
-        }
-    }
+        }, message="对比成功")
 
 
 # ==================== 数据导出接口 ====================
@@ -429,11 +387,7 @@ async def export_student_report(
         format=format
     )
 
-    return {
-        "code": 0,
-        "message": "导出成功",
-        "data": data
-    }
+    return success(data, message="导出成功")
 
 
 # ==================== 统计接口 ====================
@@ -450,16 +404,12 @@ async def get_statistics_overview(
         all_scores.extend(scores)
 
     if not all_scores:
-        return {
-            "code": 0,
-            "message": "获取成功",
-            "data": {
-                "total_students": 0,
-                "total_exams": 0,
-                "overall_average": 0.0,
-                "overall_pass_rate": 0.0
-            }
-        }
+        return success({
+            "total_students": 0,
+            "total_exams": 0,
+            "overall_average": 0.0,
+            "overall_pass_rate": 0.0
+        }, message="获取成功")
 
     # 计算整体统计
     scores_list = [s.score for s in all_scores]
@@ -467,19 +417,15 @@ async def get_statistics_overview(
     pass_count = sum(1 for s in all_scores if s.is_pass())
     overall_pass_rate = pass_count / len(all_scores)
 
-    return {
-        "code": 0,
-        "message": "获取成功",
-        "data": {
-            "total_students": len(set(s.student_id for s in all_scores)),
-            "total_exams": len(set(s.exam_id for s in all_scores)),
-            "total_subjects": len(set(s.subject_id for s in all_scores)),
-            "overall_average": round(overall_average, 2),
-            "overall_pass_rate": round(overall_pass_rate, 4),
-            "highest_score": max(scores_list),
-            "lowest_score": min(scores_list)
-        }
-    }
+    return success({
+        "total_students": len(set(s.student_id for s in all_scores)),
+        "total_exams": len(set(s.exam_id for s in all_scores)),
+        "total_subjects": len(set(s.subject_id for s in all_scores)),
+        "overall_average": round(overall_average, 2),
+        "overall_pass_rate": round(overall_pass_rate, 4),
+        "highest_score": max(scores_list),
+        "lowest_score": min(scores_list)
+    }, message="获取成功")
 
 
 @router.get("/statistics/ranking", summary="获取成绩排名")
@@ -520,11 +466,7 @@ async def get_ranking(
     for i, r in enumerate(rankings[:limit]):
         r["rank"] = i + 1
 
-    return {
-        "code": 0,
-        "message": "获取成功",
-        "data": {
+    return success({
             "total": len(rankings),
             "items": rankings[:limit]
-        }
-    }
+        }, message="获取成功")

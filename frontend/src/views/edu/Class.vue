@@ -161,7 +161,7 @@ const fetchTeachers = async () => {
 const getGradeName = (id: string) => gradeOptions.value.find(g => g.value === id)?.label || ''
 const getTeacherName = (id: string) => teacherOptions.value.find(t => t.value === id)?.label || ''
 
-const handleGradeChange = () => { searchForm.grade_id = ''; fetchData() }
+const handleGradeChange = () => { fetchData() }
 const handleFormGradeChange = () => { formData.head_teacher_id = '' }
 
 const handleSearch = () => { pagination.page = 1; fetchData() }

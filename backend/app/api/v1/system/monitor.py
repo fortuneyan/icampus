@@ -16,6 +16,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import get_db
 from app.core.security import get_current_user
 from app.models.user import User
+from app.schemas.response import success
 
 
 # ==================== Schema 定义 ====================
@@ -199,7 +200,7 @@ def _assess_overall_health(system_info: SystemInfo, db_pool: DatabasePoolInfo) -
 router = APIRouter(prefix="", tags=["服务监控"])
 
 
-@router.get("/system", response_model=SystemInfo)
+@router.get("/system")
 async def get_system_info():
     """
     获取系统资源信息
@@ -208,18 +209,18 @@ async def get_system_info():
     - 磁盘总量、使用量、可用量
     - 平台信息和运行时长
     """
-    return SystemInfo(
-        cpu=_get_cpu_info(),
-        memory=_get_memory_info(),
-        disk=_get_disk_info(),
-        platform=platform.system(),
-        platform_version=platform.version(),
-        uptime_seconds=_calculate_uptime(),
-        timestamp=datetime.now().isoformat()
-    )
+    return success({
+        "cpu": _get_cpu_info().model_dump(),
+        "memory": _get_memory_info().model_dump(),
+        "disk": _get_disk_info().model_dump(),
+        "platform": platform.system(),
+        "platform_version": platform.version(),
+        "uptime_seconds": _calculate_uptime(),
+        "timestamp": datetime.now().isoformat()
+    })
 
 
-@router.get("/database", response_model=DatabaseInfo)
+@router.get("/database")
 async def get_database_info(db: AsyncSession = Depends(get_db)):
     """
     获取数据库连接池信息
@@ -237,14 +238,14 @@ async def get_database_info(db: AsyncSession = Depends(get_db)):
     
     pool_info = _check_database_pool(db)
     
-    return DatabaseInfo(
-        pool=pool_info,
-        database=db_name,
-        status=pool_info.status
-    )
+    return success({
+        "pool": pool_info.model_dump(),
+        "database": db_name,
+        "status": pool_info.status
+    })
 
 
-@router.get("/health", response_model=HealthStatus)
+@router.get("/health")
 async def get_health_status(db: AsyncSession = Depends(get_db)):
     """
     获取整体健康状态
@@ -252,15 +253,9 @@ async def get_health_status(db: AsyncSession = Depends(get_db)):
     - checks: 各检查项详细状态
     """
     # 获取系统信息
-    system_info = SystemInfo(
-        cpu=_get_cpu_info(),
-        memory=_get_memory_info(),
-        disk=_get_disk_info(),
-        platform=platform.system(),
-        platform_version=platform.version(),
-        uptime_seconds=_calculate_uptime(),
-        timestamp=datetime.now().isoformat()
-    )
+    cpu_info = _get_cpu_info()
+    memory_info = _get_memory_info()
+    disk_info = _get_disk_info()
     
     # 获取数据库连接池状态
     db_pool = _check_database_pool(db)
@@ -268,16 +263,16 @@ async def get_health_status(db: AsyncSession = Depends(get_db)):
     # 构建检查详情
     checks = {
         "cpu": {
-            "status": "ok" if system_info.cpu.percent < 90 else "warning",
-            "value": f"{system_info.cpu.percent}%"
+            "status": "ok" if cpu_info.percent < 90 else "warning",
+            "value": f"{cpu_info.percent}%"
         },
         "memory": {
-            "status": "ok" if system_info.memory.percent < 90 else "warning",
-            "value": f"{system_info.memory.percent}%"
+            "status": "ok" if memory_info.percent < 90 else "warning",
+            "value": f"{memory_info.percent}%"
         },
         "disk": {
-            "status": "ok" if system_info.disk.percent < 90 else "warning",
-            "value": f"{system_info.disk.percent}%"
+            "status": "ok" if disk_info.percent < 90 else "warning",
+            "value": f"{disk_info.percent}%"
         },
         "database": {
             "status": db_pool.status,
@@ -287,13 +282,22 @@ async def get_health_status(db: AsyncSession = Depends(get_db)):
     }
     
     # 评估整体状态
-    overall = _assess_overall_health(system_info, db_pool)
-    
-    return HealthStatus(
-        overall=overall,
-        checks=checks,
+    system_info = SystemInfo(
+        cpu=cpu_info,
+        memory=memory_info,
+        disk=disk_info,
+        platform=platform.system(),
+        platform_version=platform.version(),
+        uptime_seconds=_calculate_uptime(),
         timestamp=datetime.now().isoformat()
     )
+    overall = _assess_overall_health(system_info, db_pool)
+    
+    return success({
+        "overall": overall,
+        "checks": checks,
+        "timestamp": datetime.now().isoformat()
+    })
 
 
 @router.get("/process")
@@ -315,11 +319,11 @@ async def get_process_info():
     except Exception:
         cpu_percent = 0.0
     
-    return {
+    return success({
         "pid": process.pid,
         "memory_mb": round(process.memory_info().rss / (1024 * 1024), 2),
         "cpu_percent": cpu_percent,
         "num_threads": process.num_threads(),
         "create_time": datetime.fromtimestamp(process.create_time()).isoformat(),
         "status": process.status()
-    }
+    })

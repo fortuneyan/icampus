@@ -7,3 +7,4 @@ frontend/dist/
 docs/
 frontend/tests/
 backend/test_*
+tests/test_*.py

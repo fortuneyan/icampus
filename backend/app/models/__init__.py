@@ -36,10 +36,12 @@ from app.models.paper import Paper, PaperQuestion, PaperVersion
 from app.models.teaching_progress import TeachingProgress, ProgressUpdate, ProgressReport
 from app.models.textbook import Textbook, TextbookAdoption
 from app.models.attendance_rule import AttendanceRule
+from app.models.attendance import AttendanceRecord
 from app.models.dashboard import ReportConfig, Message, SystemSetting
 from app.models.card import CampusCard, CardTransaction, AccessRecord, Merchant
 from app.models.dormitory import Dormitory, DormitoryRoom, DormitoryAssignment, DormitoryAttendance
 from app.models.scholarship import Scholarship, ScholarshipApplication, GrantRecord, PoorStudent
+from app.models.notice import Notice, NoticeRead
 
 __all__ = [
     "User",
@@ -88,6 +90,7 @@ __all__ = [
     "Textbook",
     "TextbookAdoption",
     "AttendanceRule",
+    "AttendanceRecord",
     "ReportConfig",
     "Message",
     "SystemSetting",
@@ -103,4 +106,6 @@ __all__ = [
     "ScholarshipApplication",
     "GrantRecord",
     "PoorStudent",
+    "Notice",
+    "NoticeRead",
 ]

@@ -9,6 +9,9 @@ from app.api.v1.system import (
     encryption,
     dictionary,
     monitor,
+    online_users,
+    scheduler,
+    cache,
 )
 
 router = APIRouter()
@@ -24,3 +27,6 @@ router.include_router(regions.router, prefix="/regions", tags=["地区管理"])
 router.include_router(encryption.router, prefix="/encryption-keys", tags=["加密密钥"])
 router.include_router(dictionary.router, prefix="", tags=["字典管理"])
 router.include_router(monitor.router, prefix="/monitor", tags=["服务监控"])
+router.include_router(online_users.router, prefix="", tags=["在线用户监控"])
+router.include_router(scheduler.router, prefix="", tags=["定时任务管理"])
+router.include_router(cache.router, prefix="", tags=["缓存监控"])

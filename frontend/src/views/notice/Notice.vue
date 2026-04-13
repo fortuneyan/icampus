@@ -13,6 +13,13 @@
               <el-option label="个人通知" value="personal" />
             </el-select>
           </el-form-item>
+          <el-form-item label="状态">
+            <el-select v-model="searchForm.status" placeholder="请选择" clearable>
+              <el-option label="草稿" value="draft" />
+              <el-option label="已发布" value="published" />
+              <el-option label="已归档" value="archived" />
+            </el-select>
+          </el-form-item>
           <el-form-item>
             <el-button type="primary" @click="handleSearch">搜索</el-button>
             <el-button type="success" @click="handleAdd">发布通知</el-button>
@@ -32,15 +39,17 @@
             <el-tag :type="getPriorityType(row.priority)">{{ row.priority }}</el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="is_read" label="状态" width="100">
+        <el-table-column prop="status" label="状态" width="100">
           <template #default="{ row }">
-            <el-tag :type="row.is_read ? 'info' : 'success'">{{ row.is_read ? '已读' : '未读' }}</el-tag>
+            <el-tag :type="getStatusType(row.status)">{{ getStatusName(row.status) }}</el-tag>
           </template>
         </el-table-column>
         <el-table-column prop="published_at" label="发布时间" width="180" />
-        <el-table-column label="操作" width="150" fixed="right">
+        <el-table-column label="操作" width="220" fixed="right">
           <template #default="{ row }">
             <el-button type="primary" link @click.stop="handleView(row)">查看</el-button>
+            <el-button v-if="row.status === 'draft'" type="success" link @click.stop="handlePublish(row)">发布</el-button>
+            <el-button v-if="row.status === 'published'" type="warning" link @click.stop="handleArchive(row)">归档</el-button>
             <el-button type="danger" link @click.stop="handleDelete(row)">删除</el-button>
           </template>
         </el-table-column>
@@ -73,9 +82,9 @@
         </el-form-item>
         <el-form-item label="优先级" prop="priority">
           <el-select v-model="formData.priority">
-            <el-option label="普通" value="normal" />
-            <el-option label="重要" value="important" />
-            <el-option label="紧急" value="urgent" />
+            <el-option label="普通" :value="0" />
+            <el-option label="重要" :value="1" />
+            <el-option label="紧急" :value="2" />
           </el-select>
         </el-form-item>
         <el-form-item label="内容" prop="content">
@@ -107,18 +116,18 @@
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import type { FormInstance } from 'element-plus'
-import { getNoticeList, createNotice, deleteNotice, markRead } from '@/api/notice'
+import { getNoticeList, createNotice, deleteNotice, markRead, publishNotice, archiveNotice } from '@/api/notice'
 
 const loading = ref(false)
 const tableData = ref([])
-const searchForm = reactive({ keyword: '', notice_type: '' })
+const searchForm = reactive({ keyword: '', notice_type: '', status: '' })
 const pagination = reactive({ page: 1, pageSize: 20, total: 0 })
 
 const dialogVisible = ref(false)
 const drawerVisible = ref(false)
 const dialogTitle = ref('')
 const formRef = ref<FormInstance>()
-const formData = reactive<any>({ id: '', title: '', notice_type: 'system', priority: 'normal', content: '' })
+const formData = reactive<any>({ id: '', title: '', notice_type: 'system', priority: 0, content: '' })
 const currentNotice = ref<any>(null)
 
 const formRules = {
@@ -127,7 +136,9 @@ const formRules = {
 }
 
 const getTypeName = (type: string) => ({ system: '系统', class: '班级', personal: '个人' }[type] || type)
-const getPriorityType = (priority: string) => ({ normal: '', important: 'warning', urgent: 'danger' }[priority] || '')
+const getPriorityType = (priority: number) => ({ 0: '', 1: 'warning', 2: 'danger' }[priority] || '')
+const getStatusName = (status: string) => ({ draft: '草稿', published: '已发布', archived: '已归档' }[status] || status)
+const getStatusType = (status: string) => ({ draft: 'info', published: 'success', archived: 'warning' }[status] || '')
 
 const fetchData = async () => {
   loading.value = true
@@ -142,7 +153,7 @@ const fetchData = async () => {
 const handleSearch = () => { pagination.page = 1; fetchData() }
 
 const handleAdd = () => {
-  Object.assign(formData, { id: '', title: '', notice_type: 'system', priority: 'normal', content: '' })
+  Object.assign(formData, { id: '', title: '', notice_type: 'system', priority: 0, content: '' })
   dialogTitle.value = '发布通知'
   dialogVisible.value = true
 }
@@ -183,6 +194,24 @@ const handleDelete = async (row: any) => {
     ElMessage.success('删除成功')
     fetchData()
   } catch (e: any) { if (e !== 'cancel') ElMessage.error(e.message || '删除失败') }
+}
+
+const handlePublish = async (row: any) => {
+  try {
+    await ElMessageBox.confirm('确定要发布该通知吗？', '提示', { type: 'info' })
+    await publishNotice(row.id)
+    ElMessage.success('发布成功')
+    fetchData()
+  } catch (e: any) { if (e !== 'cancel') ElMessage.error(e.message || '发布失败') }
+}
+
+const handleArchive = async (row: any) => {
+  try {
+    await ElMessageBox.confirm('确定要归档该通知吗？', '提示', { type: 'warning' })
+    await archiveNotice(row.id)
+    ElMessage.success('归档成功')
+    fetchData()
+  } catch (e: any) { if (e !== 'cancel') ElMessage.error(e.message || '归档失败') }
 }
 
 onMounted(() => { fetchData() })

@@ -35,14 +35,25 @@ class NoticeService(BaseService[Notice]):
         await self.db.refresh(notice)
         return notice
 
+    async def archive_notice(self, notice_id: UUID) -> Notice:
+        notice = await self.get(notice_id)
+        if not notice:
+            raise NotFoundException("通知不存在")
+        notice.status = "archived"
+        await self.db.commit()
+        await self.db.refresh(notice)
+        return notice
+
     async def get_user_notices(
-        self, user_id: UUID, page: int = 1, page_size: int = 20
+        self, user_id: UUID, page: int = 1, page_size: int = 20, status: Optional[str] = None
     ) -> dict:
-        filters = [Notice.status == "published"]
+        filters = []
+        if status:
+            filters.append(Notice.status == status)
 
         query = (
             select(Notice)
-            .where(and_(*filters))
+            .where(and_(*filters) if filters else True)
             .order_by(Notice.priority.desc(), Notice.created_at.desc())
         )
         query = query.offset((page - 1) * page_size).limit(page_size)
@@ -50,9 +61,10 @@ class NoticeService(BaseService[Notice]):
         result = await self.db.execute(query)
         notices = list(result.scalars().all())
 
-        count_result = await self.db.execute(
-            select(func.count()).select_from(Notice).where(and_(*filters))
-        )
+        count_query = select(func.count()).select_from(Notice)
+        if filters:
+            count_query = count_query.where(and_(*filters))
+        count_result = await self.db.execute(count_query)
         total = count_result.scalar()
 
         return {"items": notices, "total": total, "page": page, "page_size": page_size}

@@ -108,32 +108,45 @@
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus } from '@element-plus/icons-vue'
+import {
+  getSchedulerTasks,
+  getSchedulerLogs,
+  createSchedulerTask,
+  updateSchedulerTask,
+  deleteSchedulerTask,
+  toggleSchedulerTask,
+  runSchedulerTaskNow,
+  getTaskTypes,
+  type SchedulerTask,
+  type TaskLog,
+  type TaskType
+} from '@/api/system/scheduler'
 
 // 表格数据
-const tableData = ref([
-  { id: 1, name: '每日数据备份', type: 'backup', cron: '0 0 2 * * *', next_run: '2026-04-13 02:00:00', last_run: '2026-04-12 02:00:00', enabled: true, last_result: 'success' },
-  { id: 2, name: '缓存清理', type: 'cache', cron: '0 0 0 * * *', next_run: '2026-04-13 00:00:00', last_run: '2026-04-12 00:00:00', enabled: true, last_result: 'success' },
-  { id: 3, name: '学习数据同步', type: 'sync', cron: '0 */30 * * * *', next_run: '2026-04-12 17:00:00', last_run: '2026-04-12 16:30:00', enabled: true, last_result: 'success' },
-  { id: 4, name: '周报生成', type: 'report', cron: '0 0 8 * * 1', next_run: '2026-04-14 08:00:00', last_run: '-', enabled: false, last_result: null },
-])
+const tableData = ref<SchedulerTask[]>([])
 
 // 日志数据
-const logData = ref([
-  { task_name: '每日数据备份', start_time: '2026-04-12 02:00:00', end_time: '2026-04-12 02:15:30', duration: '15分30秒', status: 'success', message: '备份完成，共备份 128 个文件' },
-  { task_name: '缓存清理', start_time: '2026-04-12 00:00:00', end_time: '2026-04-12 00:01:15', duration: '1分15秒', status: 'success', message: '清理过期缓存 2345 条' },
-  { task_name: '学习数据同步', start_time: '2026-04-12 16:30:00', end_time: '2026-04-12 16:30:05', duration: '5秒', status: 'success', message: '同步完成' },
-])
+const logData = ref<TaskLog[]>([])
+
+// 任务类型
+const taskTypes = ref<TaskType[]>([])
 
 const loading = ref(false)
+const logLoading = ref(false)
 const dialogVisible = ref(false)
 const dialogTitle = ref('新建任务')
 const form = reactive({
-  id: null,
+  id: null as string | null,
   name: '',
-  type: '',
+  task_type: '',
   cron: '',
   description: ''
 })
+
+// 分页
+const currentPage = ref(1)
+const pageSize = ref(10)
+const total = ref(0)
 
 // 获取类型颜色
 const getTypeColor = (type: string) => {
@@ -142,20 +155,56 @@ const getTypeColor = (type: string) => {
     sync: 'success',
     cache: 'warning',
     report: 'info',
-    notification: ''
+    notification: '',
+    cleanup: 'danger',
+    custom: ''
   }
   return colorMap[type] || ''
 }
 
-// 加载数据
+// 加载任务数据
 const loadData = async () => {
   loading.value = true
   try {
-    // TODO: 替换为真实 API 调用
+    const res = await getSchedulerTasks({
+      page: currentPage.value,
+      page_size: pageSize.value
+    })
+    if (res.data.code === 200) {
+      tableData.value = res.data.data || []
+      total.value = res.data.total || 0
+    }
   } catch (error) {
     ElMessage.error('加载数据失败')
   } finally {
     loading.value = false
+  }
+}
+
+// 加载日志数据
+const loadLogs = async () => {
+  logLoading.value = true
+  try {
+    const res = await getSchedulerLogs({ page: 1, page_size: 20 })
+    if (res.data.code === 200) {
+      logData.value = res.data.data || []
+    }
+  } catch (error) {
+    console.error('加载日志失败', error)
+  } finally {
+    logLoading.value = false
+  }
+}
+
+// 加载任务类型
+const loadTaskTypes = async () => {
+  try {
+    const res = await getTaskTypes()
+    if (res.data.code === 200) {
+      taskTypes.value = res.data.data || []
+    }
+  } catch (error) {
+    console.error('加载任务类型失败', error)
   }
 }
 
@@ -164,55 +213,97 @@ const showAddDialog = () => {
   dialogTitle.value = '新建任务'
   form.id = null
   form.name = ''
-  form.type = ''
+  form.task_type = ''
   form.cron = ''
   form.description = ''
   dialogVisible.value = true
 }
 
 // 编辑任务
-const editTask = (row: any) => {
+const editTask = (row: SchedulerTask) => {
   dialogTitle.value = '编辑任务'
   form.id = row.id
   form.name = row.name
-  form.type = row.type
+  form.task_type = row.task_type
   form.cron = row.cron
-  form.description = ''
+  form.description = row.description || ''
   dialogVisible.value = true
 }
 
 // 保存任务
-const saveTask = () => {
-  if (!form.name || !form.type || !form.cron) {
+const saveTask = async () => {
+  if (!form.name || !form.task_type || !form.cron) {
     ElMessage.warning('请填写完整信息')
     return
   }
-  ElMessage.success('保存成功')
-  dialogVisible.value = false
-  loadData()
+  try {
+    if (form.id) {
+      // 更新
+      const res = await updateSchedulerTask(form.id, {
+        name: form.name,
+        task_type: form.task_type,
+        cron: form.cron,
+        description: form.description
+      })
+      if (res.data.code === 200) {
+        ElMessage.success('更新成功')
+      }
+    } else {
+      // 创建
+      const res = await createSchedulerTask({
+        name: form.name,
+        task_type: form.task_type,
+        cron: form.cron,
+        description: form.description
+      })
+      if (res.data.code === 200) {
+        ElMessage.success('创建成功')
+      }
+    }
+    dialogVisible.value = false
+    loadData()
+  } catch (error) {
+    ElMessage.error('保存失败')
+  }
 }
 
 // 删除任务
-const deleteTask = async (row: any) => {
+const deleteTask = async (row: SchedulerTask) => {
   try {
     await ElMessageBox.confirm(`确定要删除任务 "${row.name}" 吗？`, '确认删除')
-    ElMessage.success('删除成功')
-    loadData()
+    const res = await deleteSchedulerTask(row.id)
+    if (res.data.code === 200) {
+      ElMessage.success('删除成功')
+      loadData()
+    }
   } catch {
     // 取消操作
   }
 }
 
 // 切换状态
-const toggleStatus = (row: any) => {
-  ElMessage.success(`任务 "${row.name}" 已${row.enabled ? '启用' : '禁用'}`)
+const toggleStatus = async (row: SchedulerTask) => {
+  try {
+    const res = await toggleSchedulerTask(row.id)
+    if (res.data.code === 200) {
+      ElMessage.success(`任务 "${row.name}" 已${row.enabled ? '启用' : '禁用'}`)
+      loadData()
+    }
+  } catch (error) {
+    ElMessage.error('操作失败')
+  }
 }
 
 // 立即执行
-const runNow = async (row: any) => {
+const runNow = async (row: SchedulerTask) => {
   try {
     await ElMessageBox.confirm(`确定要立即执行任务 "${row.name}" 吗？`, '确认执行')
-    ElMessage.success('任务已开始执行')
+    const res = await runSchedulerTaskNow(row.id)
+    if (res.data.code === 200) {
+      ElMessage.success('任务已开始执行')
+      loadData()
+      loadLogs()
+    }
   } catch {
     // 取消操作
   }
@@ -220,6 +311,8 @@ const runNow = async (row: any) => {
 
 onMounted(() => {
   loadData()
+  loadLogs()
+  loadTaskTypes()
 })
 </script>
 

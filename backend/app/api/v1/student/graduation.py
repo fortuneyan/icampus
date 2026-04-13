@@ -7,6 +7,8 @@ from typing import Optional, List, Dict, Any
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel, Field
 
+from app.schemas.response import success
+
 from app.models.graduation import (
     GraduationAudit, GraduationCertificate, LeaveSchoolRecord,
     AlumniRecord, GraduationStatistics, GraduationReport,
@@ -136,18 +138,14 @@ async def create_audit(request: GraduationAuditCreate):
         semester=request.semester,
         audit_type=audit_type
     )
-    return {
-        "code": 0,
-        "message": "创建成功",
-        "data": {
-            "id": audit.id,
-            "student_id": audit.student_id,
-            "academic_year": audit.academic_year,
-            "semester": audit.semester,
-            "audit_type": audit.audit_type.value,
-            "status": audit.status.value
-        }
-    }
+    return success({
+        "id": audit.id,
+        "student_id": audit.student_id,
+        "academic_year": audit.academic_year,
+        "semester": audit.semester,
+        "audit_type": audit.audit_type.value,
+        "status": audit.status.value
+    }, message="创建成功")
 
 
 @router.put("/audits/{audit_id}/academic", summary="更新学业信息")
@@ -171,18 +169,14 @@ async def update_academic_info(
     if not audit:
         raise HTTPException(status_code=404, detail="审核记录不存在")
 
-    return {
-        "code": 0,
-        "message": "更新成功",
-        "data": {
-            "id": audit.id,
-            "total_credits": audit.total_credits,
-            "major_credits": audit.major_credits,
-            "gpa": audit.gpa,
-            "is_eligible": audit.is_eligible,
-            "completion_rate": audit.get_completion_rate()
-        }
-    }
+    return success({
+        "id": audit.id,
+        "total_credits": audit.total_credits,
+        "major_credits": audit.major_credits,
+        "gpa": audit.gpa,
+        "is_eligible": audit.is_eligible,
+        "completion_rate": audit.get_completion_rate()
+    }, message="更新成功")
 
 
 @router.post("/audits/{audit_id}/eligibility", summary="检查毕业资格")
@@ -198,15 +192,11 @@ async def check_eligibility(audit_id: int):
             audit.academic_year
         )
 
-    return {
-        "code": 0,
-        "message": "检查完成",
-        "data": {
-            "is_eligible": is_eligible,
-            "reasons": reasons,
-            "completion_rate": completion_rate
-        }
-    }
+    return success({
+        "is_eligible": is_eligible,
+        "reasons": reasons,
+        "completion_rate": completion_rate
+    }, message="检查完成")
 
 
 @router.post("/audits/{audit_id}/submit", summary="提交审核")
@@ -225,16 +215,12 @@ async def submit_audit(
     if not audit:
         raise HTTPException(status_code=404, detail="审核记录不存在")
 
-    return {
-        "code": 0,
-        "message": "审核提交成功",
-        "data": {
-            "id": audit.id,
-            "status": audit.status.value,
-            "is_eligible": audit.is_eligible,
-            "audit_time": audit.audit_time.isoformat() if audit.audit_time else None
-        }
-    }
+    return success({
+        "id": audit.id,
+        "status": audit.status.value,
+        "is_eligible": audit.is_eligible,
+        "audit_time": audit.audit_time.isoformat() if audit.audit_time else None
+    }, message="审核提交成功")
 
 
 @router.post("/audits/batch", summary="批量审核")
@@ -247,11 +233,7 @@ async def batch_audit(request: BatchAuditRequest, auditor_id: int):
         comment=request.comment
     )
 
-    return {
-        "code": 0,
-        "message": "批量审核完成",
-        "data": results
-    }
+    return success(results, message="批量审核完成")
 
 
 @router.get("/audits", summary="获取审核列表")
@@ -280,29 +262,25 @@ async def get_audits(
     end = start + page_size
     audits = audits[start:end]
 
-    return {
-        "code": 0,
-        "message": "获取成功",
-        "data": {
-            "total": total,
-            "page": page,
-            "page_size": page_size,
-            "items": [
-                {
-                    "id": a.id,
-                    "student_id": a.student_id,
-                    "academic_year": a.academic_year,
-                    "semester": a.semester,
-                    "status": a.status.value,
-                    "total_credits": a.total_credits,
-                    "gpa": a.gpa,
-                    "is_eligible": a.is_eligible,
-                    "completion_rate": a.get_completion_rate()
-                }
-                for a in audits
-            ]
-        }
-    }
+    return success({
+        "total": total,
+        "page": page,
+        "page_size": page_size,
+        "items": [
+            {
+                "id": a.id,
+                "student_id": a.student_id,
+                "academic_year": a.academic_year,
+                "semester": a.semester,
+                "status": a.status.value,
+                "total_credits": a.total_credits,
+                "gpa": a.gpa,
+                "is_eligible": a.is_eligible,
+                "completion_rate": a.get_completion_rate()
+            }
+            for a in audits
+        ]
+    }, message="获取成功")
 
 
 @router.get("/audits/{audit_id}", summary="获取审核详情")
@@ -312,31 +290,27 @@ async def get_audit_detail(audit_id: int):
     if not audit:
         raise HTTPException(status_code=404, detail="审核记录不存在")
 
-    return {
-        "code": 0,
-        "message": "获取成功",
-        "data": {
-            "id": audit.id,
-            "student_id": audit.student_id,
-            "academic_year": audit.academic_year,
-            "semester": audit.semester,
-            "audit_type": audit.audit_type.value,
-            "status": audit.status.value,
-            "total_credits": audit.total_credits,
-            "major_credits": audit.major_credits,
-            "elective_credits": audit.elective_credits,
-            "practice_credits": audit.practice_credits,
-            "completed_courses": audit.completed_courses,
-            "gpa": audit.gpa,
-            "passed_required": audit.passed_required,
-            "failed_required": audit.failed_required,
-            "is_eligible": audit.is_eligible,
-            "audit_comment": audit.audit_comment,
-            "auditor_id": audit.auditor_id,
-            "audit_time": audit.audit_time.isoformat() if audit.audit_time else None,
-            "completion_rate": audit.get_completion_rate()
-        }
-    }
+    return success({
+        "id": audit.id,
+        "student_id": audit.student_id,
+        "academic_year": audit.academic_year,
+        "semester": audit.semester,
+        "audit_type": audit.audit_type.value,
+        "status": audit.status.value,
+        "total_credits": audit.total_credits,
+        "major_credits": audit.major_credits,
+        "elective_credits": audit.elective_credits,
+        "practice_credits": audit.practice_credits,
+        "completed_courses": audit.completed_courses,
+        "gpa": audit.gpa,
+        "passed_required": audit.passed_required,
+        "failed_required": audit.failed_required,
+        "is_eligible": audit.is_eligible,
+        "audit_comment": audit.audit_comment,
+        "auditor_id": audit.auditor_id,
+        "audit_time": audit.audit_time.isoformat() if audit.audit_time else None,
+        "completion_rate": audit.get_completion_rate()
+    }, message="获取成功")
 
 
 # ==================== 毕业证书接口 ====================
@@ -352,17 +326,13 @@ async def create_certificate(request: CertificateCreate):
         major_code=request.major_code
     )
 
-    return {
-        "code": 0,
-        "message": "创建成功",
-        "data": {
-            "id": cert.id,
-            "student_id": cert.student_id,
-            "student_name": cert.student_name,
-            "certificate_number": cert.certificate_number,
-            "status": cert.status.value
-        }
-    }
+    return success({
+        "id": cert.id,
+        "student_id": cert.student_id,
+        "student_name": cert.student_name,
+        "certificate_number": cert.certificate_number,
+        "status": cert.status.value
+    }, message="创建成功")
 
 
 @router.post("/certificates/{certificate_id}/print", summary="打印证书")
@@ -379,15 +349,11 @@ async def print_certificate(
     if not cert:
         raise HTTPException(status_code=404, detail="证书不存在")
 
-    return {
-        "code": 0,
-        "message": "打印成功",
-        "data": {
-            "id": cert.id,
-            "status": cert.status.value,
-            "printed_at": cert.printed_at.isoformat() if cert.printed_at else None
-        }
-    }
+    return success({
+        "id": cert.id,
+        "status": cert.status.value,
+        "printed_at": cert.printed_at.isoformat() if cert.printed_at else None
+    }, message="打印成功")
 
 
 @router.post("/certificates/{certificate_id}/issue", summary="发放证书")
@@ -404,15 +370,11 @@ async def issue_certificate(
     if not cert:
         raise HTTPException(status_code=404, detail="证书不存在")
 
-    return {
-        "code": 0,
-        "message": "发放成功",
-        "data": {
-            "id": cert.id,
-            "status": cert.status.value,
-            "issued_at": cert.issued_at.isoformat() if cert.issued_at else None
-        }
-    }
+    return success({
+        "id": cert.id,
+        "status": cert.status.value,
+        "issued_at": cert.issued_at.isoformat() if cert.issued_at else None
+    }, message="发放成功")
 
 
 @router.post("/certificates/{certificate_id}/revoke", summary="吊销证书")
@@ -429,14 +391,10 @@ async def revoke_certificate(
     if not cert:
         raise HTTPException(status_code=404, detail="证书不存在")
 
-    return {
-        "code": 0,
-        "message": "吊销成功",
-        "data": {
-            "id": cert.id,
-            "status": cert.status.value
-        }
-    }
+    return success({
+        "id": cert.id,
+        "status": cert.status.value
+    }, message="吊销成功")
 
 
 @router.get("/certificates/verify/{certificate_number}", summary="验证证书")
@@ -444,14 +402,10 @@ async def verify_certificate(certificate_number: str):
     """验证毕业证书"""
     is_valid, result = graduation_service.verify_certificate(certificate_number)
 
-    return {
-        "code": 0,
-        "message": "验证完成",
-        "data": {
-            "is_valid": is_valid,
-            "result": result
-        }
-    }
+    return success({
+        "is_valid": is_valid,
+        "result": result
+    }, message="验证完成")
 
 
 @router.get("/certificates/{certificate_id}", summary="获取证书详情")
@@ -461,23 +415,19 @@ async def get_certificate(certificate_id: int):
     if not cert:
         raise HTTPException(status_code=404, detail="证书不存在")
 
-    return {
-        "code": 0,
-        "message": "获取成功",
-        "data": {
-            "id": cert.id,
-            "student_id": cert.student_id,
-            "student_name": cert.student_name,
-            "certificate_number": cert.certificate_number,
-            "academic_year": cert.academic_year,
-            "graduation_year": cert.graduation_year,
-            "major": cert.major,
-            "degree": cert.degree_type,
-            "status": cert.status.value,
-            "gpa": cert.gpa,
-            "is_valid": cert.is_valid()
-        }
-    }
+    return success({
+        "id": cert.id,
+        "student_id": cert.student_id,
+        "student_name": cert.student_name,
+        "certificate_number": cert.certificate_number,
+        "academic_year": cert.academic_year,
+        "graduation_year": cert.graduation_year,
+        "major": cert.major,
+        "degree": cert.degree_type,
+        "status": cert.status.value,
+        "gpa": cert.gpa,
+        "is_valid": cert.is_valid()
+    }, message="获取成功")
 
 
 @router.get("/certificates/student/{student_id}", summary="获取学生证书")
@@ -486,22 +436,14 @@ async def get_student_certificate(student_id: int):
     cert = graduation_service.get_student_certificate(student_id)
 
     if not cert:
-        return {
-            "code": 0,
-            "message": "未找到证书",
-            "data": None
-        }
+        return success(None, message="未找到证书")
 
-    return {
-        "code": 0,
-        "message": "获取成功",
-        "data": {
-            "id": cert.id,
-            "certificate_number": cert.certificate_number,
-            "status": cert.status.value,
-            "graduation_year": cert.graduation_year
-        }
-    }
+    return success({
+        "id": cert.id,
+        "certificate_number": cert.certificate_number,
+        "status": cert.status.value,
+        "graduation_year": cert.graduation_year
+    }, message="获取成功")
 
 
 # ==================== 离校手续接口 ====================
@@ -517,16 +459,12 @@ async def create_leave_record(request: LeaveRecordCreate):
         leave_type=request.leave_type
     )
 
-    return {
-        "code": 0,
-        "message": "创建成功",
-        "data": {
-            "id": record.id,
-            "student_id": record.student_id,
-            "status": record.status.value,
-            "completion_rate": record.get_completion_rate()
-        }
-    }
+    return success({
+        "id": record.id,
+        "student_id": record.student_id,
+        "status": record.status.value,
+        "completion_rate": record.get_completion_rate()
+    }, message="创建成功")
 
 
 @router.post("/leave-records/{leave_id}/checkpoints/{checkpoint_type}/complete",
@@ -548,15 +486,11 @@ async def complete_checkpoint(
     if not record:
         raise HTTPException(status_code=404, detail="离校记录不存在")
 
-    return {
-        "code": 0,
-        "message": "完成成功",
-        "data": {
-            "leave_id": record.id,
-            "status": record.status.value,
-            "completion_rate": record.get_completion_rate()
-        }
-    }
+    return success({
+        "leave_id": record.id,
+        "status": record.status.value,
+        "completion_rate": record.get_completion_rate()
+    }, message="完成成功")
 
 
 @router.post("/leave-records/{leave_id}/checkpoints/{checkpoint_type}/exempt",
@@ -578,15 +512,11 @@ async def exempt_checkpoint(
     if not record:
         raise HTTPException(status_code=404, detail="离校记录不存在")
 
-    return {
-        "code": 0,
-        "message": "豁免成功",
-        "data": {
-            "leave_id": record.id,
-            "status": record.status.value,
-            "completion_rate": record.get_completion_rate()
-        }
-    }
+    return success({
+        "leave_id": record.id,
+        "status": record.status.value,
+        "completion_rate": record.get_completion_rate()
+    }, message="豁免成功")
 
 
 @router.get("/leave-records/{leave_id}", summary="获取离校记录详情")
@@ -596,29 +526,25 @@ async def get_leave_record(leave_id: int):
     if not record:
         raise HTTPException(status_code=404, detail="离校记录不存在")
 
-    return {
-        "code": 0,
-        "message": "获取成功",
-        "data": {
-            "id": record.id,
-            "student_id": record.student_id,
-            "student_name": record.student_name,
-            "leave_type": record.leave_type,
-            "status": record.status.value,
-            "completion_rate": record.get_completion_rate(),
-            "checkpoints": [
-                {
-                    "type": c.checkpoint_type.value,
-                    "name": c.name,
-                    "status": c.status.value,
-                    "required": c.required,
-                    "result": c.check_result,
-                    "checked_at": c.checked_at.isoformat() if c.checked_at else None
-                }
-                for c in record.checkpoints
-            ]
-        }
-    }
+    return success({
+        "id": record.id,
+        "student_id": record.student_id,
+        "student_name": record.student_name,
+        "leave_type": record.leave_type,
+        "status": record.status.value,
+        "completion_rate": record.get_completion_rate(),
+        "checkpoints": [
+            {
+                "type": c.checkpoint_type.value,
+                "name": c.name,
+                "status": c.status.value,
+                "required": c.required,
+                "result": c.check_result,
+                "checked_at": c.checked_at.isoformat() if c.checked_at else None
+            }
+            for c in record.checkpoints
+        ]
+    }, message="获取成功")
 
 
 @router.get("/leave-records/pending", summary="获取待办理离校记录")
@@ -626,21 +552,17 @@ async def get_pending_leave_records():
     """获取待办理离校记录列表"""
     records = graduation_service.get_pending_leave_records()
 
-    return {
-        "code": 0,
-        "message": "获取成功",
-        "data": [
-            {
-                "id": r.id,
-                "student_id": r.student_id,
-                "student_name": r.student_name,
-                "leave_type": r.leave_type,
-                "status": r.status.value,
-                "completion_rate": r.get_completion_rate()
-            }
-            for r in records
-        ]
-    }
+    return success([
+        {
+            "id": r.id,
+            "student_id": r.student_id,
+            "student_name": r.student_name,
+            "leave_type": r.leave_type,
+            "status": r.status.value,
+            "completion_rate": r.get_completion_rate()
+        }
+        for r in records
+    ], message="获取成功")
 
 
 # ==================== 校友管理接口 ====================
@@ -657,15 +579,11 @@ async def create_alumni(request: AlumniCreate):
         degree=request.degree
     )
 
-    return {
-        "code": 0,
-        "message": "创建成功",
-        "data": {
-            "id": alumni.id,
-            "student_id": alumni.student_id,
-            "name": alumni.name
-        }
-    }
+    return success({
+        "id": alumni.id,
+        "student_id": alumni.student_id,
+        "name": alumni.name
+    }, message="创建成功")
 
 
 @router.post("/alumni/convert", summary="毕业生转校友")
@@ -687,16 +605,12 @@ async def convert_to_alumni(
         student_class=student_class
     )
 
-    return {
-        "code": 0,
-        "message": "转换成功",
-        "data": {
-            "id": alumni.id,
-            "student_id": alumni.student_id,
-            "name": alumni.name,
-            "graduation_year": alumni.graduation_year
-        }
-    }
+    return success({
+        "id": alumni.id,
+        "student_id": alumni.student_id,
+        "name": alumni.name,
+        "graduation_year": alumni.graduation_year
+    }, message="转换成功")
 
 
 @router.put("/alumni/{alumni_id}", summary="更新校友信息")
@@ -717,16 +631,12 @@ async def update_alumni(
     if not alumni:
         raise HTTPException(status_code=404, detail="校友记录不存在")
 
-    return {
-        "code": 0,
-        "message": "更新成功",
-        "data": {
-            "id": alumni.id,
-            "employer": alumni.employer,
-            "position": alumni.position,
-            "industry": alumni.industry
-        }
-    }
+    return success({
+        "id": alumni.id,
+        "employer": alumni.employer,
+        "position": alumni.position,
+        "industry": alumni.industry
+    }, message="更新成功")
 
 
 @router.get("/alumni/{alumni_id}", summary="获取校友详情")
@@ -736,25 +646,21 @@ async def get_alumni(alumni_id: int):
     if not alumni:
         raise HTTPException(status_code=404, detail="校友记录不存在")
 
-    return {
-        "code": 0,
-        "message": "获取成功",
-        "data": {
-            "id": alumni.id,
-            "student_id": alumni.student_id,
-            "name": alumni.name,
-            "phone": alumni.phone,
-            "email": alumni.email,
-            "major": alumni.major,
-            "graduation_year": alumni.graduation_year,
-            "employer": alumni.employer,
-            "position": alumni.position,
-            "industry": alumni.industry,
-            "alumni_association": alumni.alumni_association,
-            "alumni_level": alumni.alumni_level,
-            "contributions": alumni.contributions
-        }
-    }
+    return success({
+        "id": alumni.id,
+        "student_id": alumni.student_id,
+        "name": alumni.name,
+        "phone": alumni.phone,
+        "email": alumni.email,
+        "major": alumni.major,
+        "graduation_year": alumni.graduation_year,
+        "employer": alumni.employer,
+        "position": alumni.position,
+        "industry": alumni.industry,
+        "alumni_association": alumni.alumni_association,
+        "alumni_level": alumni.alumni_level,
+        "contributions": alumni.contributions
+    }, message="获取成功")
 
 
 @router.get("/alumni/search", summary="搜索校友")
@@ -780,26 +686,22 @@ async def search_alumni(
     end = start + page_size
     alumni_list = alumni_list[start:end]
 
-    return {
-        "code": 0,
-        "message": "搜索成功",
-        "data": {
-            "total": total,
-            "page": page,
-            "page_size": page_size,
-            "items": [
-                {
-                    "id": a.id,
-                    "name": a.name,
-                    "major": a.major,
-                    "graduation_year": a.graduation_year,
-                    "employer": a.employer,
-                    "industry": a.industry
-                }
-                for a in alumni_list
-            ]
-        }
-    }
+    return success({
+        "total": total,
+        "page": page,
+        "page_size": page_size,
+        "items": [
+            {
+                "id": a.id,
+                "name": a.name,
+                "major": a.major,
+                "graduation_year": a.graduation_year,
+                "employer": a.employer,
+                "industry": a.industry
+            }
+            for a in alumni_list
+        ]
+    }, message="搜索成功")
 
 
 @router.get("/alumni/statistics", summary="校友统计")
@@ -807,11 +709,7 @@ async def get_alumni_statistics(graduation_year: int = 0):
     """获取校友统计"""
     stats = graduation_service.get_alumni_statistics(graduation_year or None)
 
-    return {
-        "code": 0,
-        "message": "获取成功",
-        "data": stats
-    }
+    return success(stats, message="获取成功")
 
 
 # ==================== 统计报表接口 ====================
@@ -824,23 +722,19 @@ async def generate_report(audit_id: int):
     if not report:
         raise HTTPException(status_code=404, detail="审核记录不存在")
 
-    return {
-        "code": 0,
-        "message": "生成成功",
-        "data": {
-            "audit_id": report.audit_id,
-            "student_id": report.student_id,
-            "student_name": report.student_name,
-            "total_credits": report.total_credits,
-            "major_credits": report.major_credits,
-            "gpa": report.gpa,
-            "is_eligible": report.is_eligible,
-            "completion_rate": report.completion_rate,
-            "missing_requirements": report.missing_requirements,
-            "suggestions": report.suggestions,
-            "generated_at": report.generated_at.isoformat()
-        }
-    }
+    return success({
+        "audit_id": report.audit_id,
+        "student_id": report.student_id,
+        "student_name": report.student_name,
+        "total_credits": report.total_credits,
+        "major_credits": report.major_credits,
+        "gpa": report.gpa,
+        "is_eligible": report.is_eligible,
+        "completion_rate": report.completion_rate,
+        "missing_requirements": report.missing_requirements,
+        "suggestions": report.suggestions,
+        "generated_at": report.generated_at.isoformat()
+    }, message="生成成功")
 
 
 @router.get("/statistics/{academic_year}", summary="毕业统计")
@@ -848,19 +742,15 @@ async def get_graduation_statistics(academic_year: str):
     """获取毕业统计"""
     stats = graduation_service.get_graduation_statistics(academic_year)
 
-    return {
-        "code": 0,
-        "message": "获取成功",
-        "data": {
-            "academic_year": stats.academic_year,
-            "semester": stats.semester,
-            "total_students": stats.total_students,
-            "graduated_count": stats.graduated_count,
-            "pending_count": stats.pending_count,
-            "deferred_count": stats.deferred_count,
-            "average_gpa": stats.average_gpa,
-            "highest_gpa": stats.highest_gpa,
-            "lowest_gpa": stats.lowest_gpa,
-            "graduation_rate": stats.get_graduation_rate()
-        }
-    }
+    return success({
+        "academic_year": stats.academic_year,
+        "semester": stats.semester,
+        "total_students": stats.total_students,
+        "graduated_count": stats.graduated_count,
+        "pending_count": stats.pending_count,
+        "deferred_count": stats.deferred_count,
+        "average_gpa": stats.average_gpa,
+        "highest_gpa": stats.highest_gpa,
+        "lowest_gpa": stats.lowest_gpa,
+        "graduation_rate": stats.get_graduation_rate()
+    }, message="获取成功")

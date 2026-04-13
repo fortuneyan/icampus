@@ -17,6 +17,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
 from app.services.quality_score_service import QualityScoreService
+from app.schemas.response import success
 from app.schemas.quality import (
     QualityEvaluationRequest,
     QualityEvaluationResponse,
@@ -380,7 +381,6 @@ async def submit_review(
 
 @router.get(
     "/statistics",
-    response_model=QualityStatistics,
     summary="获取质量统计",
     description="获取题库质量评分统计信息",
 )
@@ -388,4 +388,5 @@ async def get_quality_statistics(
     service: QualityScoreService = Depends(get_quality_service),
 ):
     """获取质量统计"""
-    return await service.get_quality_statistics()
+    result = await service.get_quality_statistics()
+    return success(result)

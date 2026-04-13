@@ -371,6 +371,40 @@ const handleCommand = (command: string) => {
   .el-main {
     background-color: #f0f2f5;
     padding: 20px;
+    
+    // toolbar 中的 select 元素宽度设置
+    :deep(.toolbar) {
+      .el-form-item__content {
+        // 确保内容区域宽度自适应
+        display: inline-flex;
+        align-items: center;
+        
+        .el-select {
+          // 设置一个足够显示常见内容的最小宽度
+          min-width: 140px;
+          width: auto !important;
+          max-width: 300px;
+          
+          // 让选择器根据内容自动调整
+          .el-select__wrapper {
+            width: auto;
+            min-width: 140px;
+          }
+          
+          // 确保选中项能完整显示
+          .el-select__selection {
+            width: auto;
+            min-width: 140px;
+          }
+          
+          // 占位符和选中文字不换行
+          .el-select__placeholder,
+          .el-select__selected-item {
+            white-space: nowrap;
+          }
+        }
+      }
+    }
   }
 }
 

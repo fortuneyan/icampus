@@ -7,7 +7,7 @@ export interface NoticeForm {
   content: string
 }
 
-export function getNoticeList(params?: { keyword?: string; notice_type?: string; page?: number; page_size?: number }) {
+export function getNoticeList(params?: { keyword?: string; notice_type?: string; status?: string; page?: number; page_size?: number }) {
   return request.get('/notice/notices', { params })
 }
 
@@ -29,6 +29,14 @@ export function deleteNotice(id: string) {
 
 export function markRead(id: string) {
   return request.put(`/notice/notices/${id}/read`)
+}
+
+export function publishNotice(id: string) {
+  return request.post(`/notice/notices/${id}/publish`)
+}
+
+export function archiveNotice(id: string) {
+  return request.post(`/notice/notices/${id}/archive`)
 }
 
 export function getUnreadCount() {

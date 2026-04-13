@@ -2,9 +2,11 @@
 教室管理接口
 """
 
+from datetime import datetime
 from typing import Optional
 from uuid import UUID
 from fastapi import APIRouter, Depends, Query
+from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
@@ -15,6 +17,23 @@ from app.models.user import User
 from app.models.schedule import Classroom
 
 router = APIRouter()
+
+
+class ClassroomCreate(BaseModel):
+    """创建教室请求"""
+    building: str
+    room_no: str
+    capacity: int = 0
+    room_type: str = "普通教室"
+
+
+class ClassroomUpdate(BaseModel):
+    """更新教室请求"""
+    building: Optional[str] = None
+    room_no: Optional[str] = None
+    capacity: Optional[int] = None
+    room_type: Optional[str] = None
+    status: Optional[str] = None
 
 
 @router.get("", response_model=dict)
@@ -57,18 +76,8 @@ async def get_classrooms(
         for c in classrooms
     ]
 
-    return {
-        "code": 200,
-        "message": "success",
-        "data": {
-            "items": items,
-            "total": total,
-            "page": page,
-            "page_size": page_size,
-            "total_pages": (total + page_size - 1) // page_size,
-        },
-        "timestamp": datetime.now().isoformat(),
-    }
+    from app.schemas.response import page_response
+    return page_response(items, total, page, page_size)
 
 
 @router.get("/options", response_model=dict)
@@ -83,17 +92,19 @@ async def get_classroom_options(
     options = [
         {"value": str(c.id), "label": f"{c.building}-{c.room_no}"} for c in classrooms
     ]
-    return {"code": 200, "message": "success", "data": options}
+    from app.schemas.response import success
+    return success(options)
 
 
-@router.get("/buildings", response_model=dict)
+@router.get("/buildings")
 async def get_buildings(
     db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)
 ):
     """获取教学楼列表"""
+    from app.schemas.response import success
     result = await db.execute(select(Classroom.building).distinct())
     buildings = [r[0] for r in result.fetchall() if r[0]]
-    return {"code": 200, "message": "success", "data": buildings}
+    return success(buildings)
 
 
 @router.get("/{classroom_id}", response_model=dict)
@@ -109,84 +120,77 @@ async def get_classroom(
     if not classroom:
         raise NotFoundException("教室不存在")
 
-    return {
-        "code": 200,
-        "message": "success",
-        "data": {
-            "id": str(classroom.id),
-            "building": classroom.building,
-            "room_no": classroom.room_no,
-            "capacity": classroom.capacity,
-            "room_type": classroom.room_type,
-            "status": classroom.status,
-        },
-    }
+    from app.schemas.response import success
+    return success({
+        "id": str(classroom.id),
+        "building": classroom.building,
+        "room_no": classroom.room_no,
+        "capacity": classroom.capacity,
+        "room_type": classroom.room_type,
+        "status": classroom.status,
+    })
 
 
-@router.post("", response_model=dict)
+@router.post("")
 async def create_classroom(
-    building: str = Query(...),
-    room_no: str = Query(...),
-    capacity: int = Query(0),
-    room_type: str = Query("普通教室"),
+    data: ClassroomCreate,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
     """创建教室"""
+    from app.schemas.response import success
     classroom = Classroom(
-        building=building,
-        room_no=room_no,
-        capacity=capacity,
-        room_type=room_type,
+        building=data.building,
+        room_no=data.room_no,
+        capacity=data.capacity,
+        room_type=data.room_type,
         status="active",
     )
     db.add(classroom)
     await db.commit()
     await db.refresh(classroom)
-    return {"code": 200, "message": "教室创建成功", "data": {"id": str(classroom.id)}}
+    return success({"id": str(classroom.id)})
 
 
-@router.put("/{classroom_id}", response_model=dict)
+@router.put("/{classroom_id}")
 async def update_classroom(
     classroom_id: UUID,
-    building: Optional[str] = Query(None),
-    room_no: Optional[str] = Query(None),
-    capacity: Optional[int] = Query(None),
-    room_type: Optional[str] = Query(None),
-    status: Optional[str] = Query(None),
+    data: ClassroomUpdate,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
     """更新教室"""
+    from app.schemas.response import success
     result = await db.execute(select(Classroom).where(Classroom.id == classroom_id))
     classroom = result.scalar_one_or_none()
 
     if not classroom:
         raise NotFoundException("教室不存在")
 
-    if building is not None:
-        classroom.building = building
-    if room_no is not None:
-        classroom.room_no = room_no
-    if capacity is not None:
-        classroom.capacity = capacity
-    if room_type is not None:
-        classroom.room_type = room_type
-    if status is not None:
-        classroom.status = status
+    if data.building is not None:
+        classroom.building = data.building
+    if data.room_no is not None:
+        classroom.room_no = data.room_no
+    if data.capacity is not None:
+        classroom.capacity = data.capacity
+    if data.room_type is not None:
+        classroom.room_type = data.room_type
+    if data.status is not None:
+        classroom.status = data.status
 
     await db.commit()
     await db.refresh(classroom)
-    return {"code": 200, "message": "教室更新成功", "data": {"id": str(classroom.id)}}
+    return success({"id": str(classroom.id)})
 
 
-@router.delete("/{classroom_id}", response_model=dict)
+@router.delete("/{classroom_id}")
 async def delete_classroom(
     classroom_id: UUID,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
     """删除教室"""
+    from app.schemas.response import success
     result = await db.execute(select(Classroom).where(Classroom.id == classroom_id))
     classroom = result.scalar_one_or_none()
 
@@ -195,7 +199,4 @@ async def delete_classroom(
 
     await db.delete(classroom)
     await db.commit()
-    return {"code": 200, "message": "教室删除成功"}
-
-
-from datetime import datetime
+    return success(None)

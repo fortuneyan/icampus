@@ -9,10 +9,12 @@ API endpoints for:
 
 from typing import Optional
 from uuid import UUID
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Body
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from typing import List, Dict, Any
 from app.schemas.paper import (
+    PaperCreate,
     PaperGenerateRequest,
     DiagnosticGenerateRequest,
     ABPaperRequest,
@@ -117,6 +119,25 @@ async def generate_ab_papers(
 # =============================================================================
 # Paper CRUD Endpoints
 # =============================================================================
+
+
+@router.post("", summary="创建试卷")
+async def create_paper(
+    request: PaperCreate,
+    questions: List[Dict[str, Any]] = Body(default=[], description="题目列表"),
+    service: PaperService = Depends(get_paper_service),
+    creator_id: UUID = Query(None, description="创建者ID"),
+):
+    """
+    创建试卷
+
+    手动创建试卷，指定基本信息和题目列表
+    """
+    try:
+        result = await service.create_paper(request, questions, creator_id)
+        return success(PaperResponse.model_validate(result).model_dump())
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 
 @router.get("", summary="试卷列表")

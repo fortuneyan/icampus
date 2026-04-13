@@ -2,7 +2,7 @@
 通知公告接口
 """
 
-from typing import Optional
+from typing import Optional, List, Dict, Any
 from uuid import UUID
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -21,17 +21,19 @@ router = APIRouter()
 async def get_notices(
     page: int = Query(1),
     page_size: int = Query(20),
+    status: Optional[str] = Query(None, description="状态筛选: draft/published/archived"),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
     service = NoticeService(db)
-    result = await service.get_user_notices(current_user.id, page, page_size)
+    result = await service.get_user_notices(current_user.id, page, page_size, status)
     items = [
         {
             "id": str(n.id),
             "title": n.title,
             "notice_type": n.notice_type,
             "priority": n.priority,
+            "status": n.status,
             "published_at": n.published_at.isoformat() if n.published_at else None,
             "is_read": False,
         }
@@ -92,3 +94,27 @@ async def mark_as_read(
     service = NoticeService(db)
     await service.mark_as_read(id, current_user.id)
     return success(message="标记成功")
+
+
+@router.post("/notices/{id}/publish", response_model=dict)
+async def publish_notice(
+    id: UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """发布通知（将草稿状态改为已发布）"""
+    service = NoticeService(db)
+    notice = await service.publish_notice(id)
+    return success({"id": str(notice.id), "status": notice.status}, "发布成功")
+
+
+@router.post("/notices/{id}/archive", response_model=dict)
+async def archive_notice(
+    id: UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """归档通知（将已发布状态改为已归档）"""
+    service = NoticeService(db)
+    notice = await service.archive_notice(id)
+    return success({"id": str(notice.id), "status": notice.status}, "归档成功")

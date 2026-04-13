@@ -85,7 +85,7 @@
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import type { FormInstance } from 'element-plus'
-import { getAttendanceList, createAttendance, createLeave } from '@/api/attendance'
+import { getAttendanceList, checkIn, createLeave } from '@/api/attendance'
 
 const loading = ref(false)
 const tableData = ref([])
@@ -119,10 +119,30 @@ const handleSearch = () => { pagination.page = 1; fetchData() }
 
 const handleCheckIn = async () => {
   try {
-    await createAttendance({ attendance_type: 'normal' })
+    // 获取当前位置（可选）
+    const location = await getCurrentLocation()
+    await checkIn({
+      location: location || undefined
+    })
     ElMessage.success('签到成功')
     fetchData()
   } catch (e: any) { ElMessage.error(e.message || '签到失败') }
+}
+
+// 获取当前位置
+const getCurrentLocation = (): Promise<string | null> => {
+  return new Promise((resolve) => {
+    if (!navigator.geolocation) {
+      resolve(null)
+      return
+    }
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        resolve(`${position.coords.latitude},${position.coords.longitude}`)
+      },
+      () => resolve(null)
+    )
+  })
 }
 
 const handleLeave = () => {

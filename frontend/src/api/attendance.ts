@@ -1,9 +1,8 @@
 import request from '@/utils/request'
 
 export interface AttendanceForm {
-  attendance_type?: string
-  check_in_time?: string
-  check_out_time?: string
+  rule_id: string
+  photo?: string
   location?: string
 }
 
@@ -18,8 +17,8 @@ export function getAttendanceList(params?: { date?: string; attendance_type?: st
   return request.get('/attendance/records', { params })
 }
 
-export function createAttendance(data: AttendanceForm) {
-  return request.post('/attendance/records', data)
+export function checkIn(data: AttendanceForm) {
+  return request.post('/attendance/check-in', data)
 }
 
 export function getAttendanceStats(params?: { start_date?: string; end_date?: string }) {

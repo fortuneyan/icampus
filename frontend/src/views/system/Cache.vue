@@ -158,23 +158,29 @@ import { ref, reactive, onMounted, onUnmounted, nextTick } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Key, Odometer, Cpu, Timer, Delete, Refresh } from '@element-plus/icons-vue'
 import * as echarts from 'echarts'
+import {
+  getCacheStats,
+  getCacheKeys,
+  getCacheKey,
+  deleteCacheKey,
+  clearExpiredKeys,
+  getCacheTypes,
+  getMemoryTrend,
+  type CacheStats,
+  type CacheKeyInfo,
+  type CacheTypeStat
+} from '@/api/system/cache'
 
 // 统计数据
-const stats = reactive({
-  total_keys: 1234,
-  hit_rate: 85.6,
-  memory_usage: 256,
-  expired_keys: 45
+const stats = reactive<Partial<CacheStats>>({
+  total_keys: 0,
+  hit_rate: 0,
+  memory_usage: 0,
+  expired_keys: 0
 })
 
 // 表格数据
-const tableData = ref([
-  { key: 'user:profile:1001', type: 'hash', ttl: 3600, size: 2048, access_count: 156, last_access: '2026-04-12 16:30:00', created_at: '2026-04-10 08:00:00', creator: 'user_service' },
-  { key: 'course:info:2001', type: 'string', ttl: 7200, size: 1024, access_count: 89, last_access: '2026-04-12 16:25:00', created_at: '2026-04-08 10:00:00', creator: 'course_service' },
-  { key: 'session:abc123', type: 'string', ttl: 1800, size: 512, access_count: 234, last_access: '2026-04-12 16:28:00', created_at: '2026-04-12 12:00:00', creator: 'auth_service' },
-  { key: 'ai:ability:3001', type: 'hash', ttl: -1, size: 4096, access_count: 45, last_access: '2026-04-12 16:20:00', created_at: '2026-04-01 00:00:00', creator: 'ai_service' },
-  { key: 'exam:questions:4001', type: 'list', ttl: 86400, size: 8192, access_count: 12, last_access: '2026-04-12 14:00:00', created_at: '2026-04-12 08:00:00', creator: 'exam_service' },
-])
+const tableData = ref<CacheKeyInfo[]>([])
 
 const loading = ref(false)
 const currentPage = ref(1)
@@ -189,8 +195,11 @@ let memoryChart: echarts.ECharts | null = null
 
 // 详情
 const detailVisible = ref(false)
-const currentCache = ref<any>(null)
+const currentCache = ref<Partial<CacheKeyInfo> & { value?: string }>({})
 const currentCacheValue = ref('')
+
+// 缓存类型分布数据
+const typeStats = ref<CacheTypeStat[]>([])
 
 // 格式化大小
 const formatSize = (bytes: number) => {
@@ -199,12 +208,34 @@ const formatSize = (bytes: number) => {
   return (bytes / (1024 * 1024)).toFixed(2) + ' MB'
 }
 
-// 加载数据
-const loadData = async () => {
+// 加载统计数据
+const loadStats = async () => {
+  try {
+    const res = await getCacheStats()
+    if (res.data.code === 200) {
+      const data = res.data.data || {}
+      stats.total_keys = data.total_keys || 0
+      stats.hit_rate = data.hit_rate || 0
+      stats.memory_usage = data.memory_usage || 0
+      stats.expired_keys = data.expired_keys || 0
+    }
+  } catch (error) {
+    console.error('加载统计失败', error)
+  }
+}
+
+// 加载缓存键列表
+const loadKeys = async () => {
   loading.value = true
   try {
-    total.value = tableData.value.length
-    initCharts()
+    const res = await getCacheKeys({
+      page: currentPage.value,
+      page_size: pageSize.value
+    })
+    if (res.data.code === 200) {
+      tableData.value = res.data.data || []
+      total.value = res.data.total || 0
+    }
   } catch (error) {
     ElMessage.error('加载数据失败')
   } finally {
@@ -212,13 +243,49 @@ const loadData = async () => {
   }
 }
 
+// 加载缓存类型分布
+const loadTypeStats = async () => {
+  try {
+    const res = await getCacheTypes()
+    if (res.data.code === 200) {
+      typeStats.value = res.data.data || []
+    }
+  } catch (error) {
+    console.error('加载类型分布失败', error)
+  }
+}
+
+// 加载内存趋势
+const loadMemoryTrend = async () => {
+  try {
+    const res = await getMemoryTrend(24)
+    if (res.data.code === 200) {
+      return res.data.data
+    }
+  } catch (error) {
+    console.error('加载内存趋势失败', error)
+  }
+  return null
+}
+
+// 加载所有数据
+const loadData = async () => {
+  await Promise.all([
+    loadStats(),
+    loadKeys(),
+    loadTypeStats()
+  ])
+  initCharts()
+}
+
 // 初始化图表
 const initCharts = async () => {
   await nextTick()
   
   // 类型分布饼图
-  if (typeChartRef.value) {
+  if (typeChartRef.value && typeStats.value.length > 0) {
     typeChart = echarts.init(typeChartRef.value)
+    const colors = ['#5470c6', '#91cc75', '#fac858', '#ee6666', '#73c0de', '#3ba272']
     typeChart.setOption({
       tooltip: { trigger: 'item' },
       legend: { bottom: '5%', left: 'center' },
@@ -229,30 +296,32 @@ const initCharts = async () => {
         itemStyle: { borderRadius: 10, borderColor: '#fff', borderWidth: 2 },
         label: { show: false },
         emphasis: { label: { show: true, fontSize: 14, fontWeight: 'bold' } },
-        data: [
-          { value: 580, name: 'string', itemStyle: { color: '#5470c6' } },
-          { value: 280, name: 'hash', itemStyle: { color: '#91cc75' } },
-          { value: 180, name: 'list', itemStyle: { color: '#fac858' } },
-          { value: 100, name: 'set', itemStyle: { color: '#ee6666' } },
-          { value: 94, name: 'zset', itemStyle: { color: '#73c0de' } },
-        ]
+        data: typeStats.value.map((t, i) => ({
+          value: t.count,
+          name: t.type,
+          itemStyle: { color: colors[i % colors.length] }
+        }))
       }]
     })
   }
   
   // 内存趋势图
-  if (memoryChartRef.value) {
+  const trendData = await loadMemoryTrend()
+  if (memoryChartRef.value && trendData) {
     memoryChart = echarts.init(memoryChartRef.value)
     memoryChart.setOption({
       tooltip: { trigger: 'axis' },
-      xAxis: { type: 'category', data: ['00:00', '04:00', '08:00', '12:00', '16:00', '20:00', '24:00'] },
-      yAxis: { type: 'value', name: 'MB', max: 512 },
+      xAxis: { 
+        type: 'category', 
+        data: trendData.data.map((d: any) => d.time)
+      },
+      yAxis: { type: 'value', name: 'MB' },
       series: [{
         name: '内存使用',
         type: 'line',
         smooth: true,
         areaStyle: { opacity: 0.3 },
-        data: [180, 200, 220, 256, 240, 220, 256],
+        data: trendData.data.map((d: any) => d.memory_mb),
         lineStyle: { color: '#5470c6' },
         itemStyle: { color: '#5470c6' }
       }]
@@ -261,21 +330,29 @@ const initCharts = async () => {
 }
 
 // 查看详情
-const viewDetail = (row: any) => {
-  currentCache.value = row
-  currentCacheValue.value = JSON.stringify({
-    data: '示例缓存数据...',
-    timestamp: Date.now()
-  }, null, 2)
-  detailVisible.value = true
+const viewDetail = async (row: CacheKeyInfo) => {
+  try {
+    const res = await getCacheKey(row.key)
+    if (res.data.code === 200) {
+      const data = res.data.data || {}
+      currentCache.value = { ...row, ...data }
+      currentCacheValue.value = data.value || ''
+      detailVisible.value = true
+    }
+  } catch (error) {
+    ElMessage.error('获取详情失败')
+  }
 }
 
 // 删除键
-const deleteKey = async (row: any) => {
+const deleteKey = async (row: CacheKeyInfo) => {
   try {
     await ElMessageBox.confirm(`确定要删除缓存键 "${row.key}" 吗？`, '确认删除')
-    ElMessage.success('删除成功')
-    loadData()
+    const res = await deleteCacheKey(row.key)
+    if (res.data.code === 200) {
+      ElMessage.success('删除成功')
+      loadData()
+    }
   } catch {
     // 取消操作
   }
@@ -285,8 +362,12 @@ const deleteKey = async (row: any) => {
 const clearExpired = async () => {
   try {
     await ElMessageBox.confirm('确定要清理所有过期缓存吗？', '确认操作')
-    ElMessage.success('清理完成，共清理 45 条过期缓存')
-    loadData()
+    const res = await clearExpiredKeys()
+    if (res.data.code === 200) {
+      const count = res.data.data?.cleared_count || 0
+      ElMessage.success(`清理完成，共清理 ${count} 条过期缓存`)
+      loadData()
+    }
   } catch {
     // 取消操作
   }

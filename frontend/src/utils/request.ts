@@ -12,6 +12,16 @@ service.interceptors.request.use(
     if (token) {
       config.headers.Authorization = `Bearer ${token}`
     }
+    // 过滤空字符串查询参数，避免后端 UUID 等类型解析失败 (422)
+    if (config.params) {
+      const filtered: Record<string, any> = {}
+      for (const [key, value] of Object.entries(config.params)) {
+        if (value !== '' && value !== undefined && value !== null) {
+          filtered[key] = value
+        }
+      }
+      config.params = filtered
+    }
     return config
   },
   error => {

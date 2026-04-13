@@ -98,21 +98,17 @@
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Refresh, User, UserFilled, SwitchButton, TrendCharts } from '@element-plus/icons-vue'
-import { getOnlineUsers, forceUserLogout } from '@/api/system/online_user'
+import { getOnlineUsers, getOnlineUserStats, forceUserLogout } from '@/api/system/online_user'
 
 // 数据列表
-const tableData = ref([
-  { user_id: 1, username: 'admin', real_name: '管理员', role: '管理员', ip_address: '192.168.1.100', login_time: '2026-04-12 08:30:00', last_activity: '2026-04-12 16:30:00', status: 'active' },
-  { user_id: 2, username: 'teacher1', real_name: '张老师', role: '教师', ip_address: '192.168.1.101', login_time: '2026-04-12 08:00:00', last_activity: '2026-04-12 16:25:00', status: 'active' },
-  { user_id: 3, username: 'student1', real_name: '李同学', role: '学生', ip_address: '192.168.1.102', login_time: '2026-04-12 09:00:00', last_activity: '2026-04-12 16:20:00', status: 'idle' },
-])
+const tableData = ref<any[]>([])
 
 // 统计数据
 const stats = reactive({
-  online_count: 3,
-  active_count: 2,
-  today_login: 45,
-  peak_count: 12
+  online_count: 0,
+  active_count: 0,
+  today_login: 0,
+  peak_count: 0
 })
 
 // 分页
@@ -125,11 +121,23 @@ const loading = ref(false)
 const loadData = async () => {
   loading.value = true
   try {
-    // TODO: 替换为真实 API 调用
-    // const res = await getOnlineUsers({ page: currentPage.value, page_size: pageSize.value })
-    // tableData.value = res.data
-    // total.value = res.total
-    total.value = tableData.value.length
+    const [usersRes, statsRes] = await Promise.all([
+      getOnlineUsers({ page: currentPage.value, page_size: pageSize.value }),
+      getOnlineUserStats()
+    ])
+    
+    if (usersRes.data.code === 200) {
+      tableData.value = usersRes.data.data || []
+      total.value = usersRes.data.total || 0
+    }
+    
+    if (statsRes.data.code === 200) {
+      const data = statsRes.data.data || {}
+      stats.online_count = data.online_count || 0
+      stats.active_count = data.active_count || 0
+      stats.today_login = data.today_login || 0
+      stats.peak_count = data.peak_count || 0
+    }
   } catch (error) {
     ElMessage.error('加载数据失败')
   } finally {
@@ -145,10 +153,13 @@ const forceLogout = async (row: any) => {
       '确认操作',
       { type: 'warning' }
     )
-    // TODO: 替换为真实 API 调用
-    // await forceUserLogout(row.user_id)
-    ElMessage.success(`用户 ${row.real_name} 已强制下线`)
-    loadData()
+    const res = await forceUserLogout(row.user_id)
+    if (res.data.code === 200) {
+      ElMessage.success(`用户 ${row.real_name} 已强制下线`)
+      loadData()
+    } else {
+      ElMessage.error(res.data.message || '操作失败')
+    }
   } catch {
     // 取消操作
   }

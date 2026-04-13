@@ -11,21 +11,21 @@ export interface ExamForm {
 }
 
 export function getExamList(params?: { keyword?: string; exam_type?: string; page?: number; page_size?: number }) {
-  return request.get('/exam/papers', { params })
+  return request.get('/exam/exams', { params })
 }
 
 export function getExamDetail(id: string) {
-  return request.get(`/exam/papers/${id}`)
+  return request.get(`/exam/exams/${id}`)
 }
 
 export function createExam(data: ExamForm) {
-  return request.post('/exam/papers', data)
+  return request.post('/exam/exams', data)
 }
 
 export function updateExam(id: string, data: ExamForm) {
-  return request.put(`/exam/papers/${id}`, data)
+  return request.put(`/exam/exams/${id}`, data)
 }
 
 export function deleteExam(id: string) {
-  return request.delete(`/exam/papers/${id}`)
+  return request.delete(`/exam/exams/${id}`)
 }

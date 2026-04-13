@@ -30,7 +30,9 @@ router = APIRouter()
 class ExamCreate(BaseModel):
     """创建考试"""
     title: str = Field(..., max_length=200, description="考试名称")
-    paper_type: str = Field(default="exam", description="考试类型: exam/quiz/mock/diagnostic")
+    exam_type: str = Field(default="exam", description="考试类型: midterm/final/quiz/mock/diagnostic")
+    academic_year: Optional[str] = Field(None, max_length=20, description="学年")
+    semester: Optional[str] = Field(None, max_length=20, description="学期")
     total_score: float = Field(default=100.0, description="总分")
     duration: int = Field(default=90, description="考试时长(分钟)")
     course_id: Optional[UUID] = Field(None, description="课程ID")
@@ -105,7 +107,7 @@ async def create_exam(
     """创建考试"""
     exam = ExamPaper(
         title=data.title,
-        paper_type=data.paper_type,
+        paper_type=data.exam_type,
         total_score=data.total_score,
         duration=data.duration,
         course_id=data.course_id,

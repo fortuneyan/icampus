@@ -13,6 +13,7 @@ from app.core.database import get_db
 from app.core.security import get_current_user
 from app.models.user import User
 from app.services.question_service import QuestionService
+from app.schemas.response import success
 from app.schemas.question import (
     QuestionCreate,
     QuestionUpdate,
@@ -178,7 +179,7 @@ async def delete_question(
             detail="题目不存在"
         )
     
-    return {"message": "删除成功"}
+    return success({"message": "删除成功"})
 
 
 # ============ 批量操作 ============
@@ -191,7 +192,7 @@ async def batch_delete_questions(
 ):
     """批量删除题目"""
     count = await service.batch_delete_questions(request.question_ids)
-    return {"message": f"成功删除 {count} 道题目", "count": count}
+    return success({"message": f"成功删除 {count} 道题目", "count": count})
 
 
 @router.post("/questions/batch/update-status")
@@ -207,7 +208,7 @@ async def batch_update_status(
         reviewer_id=current_user.id,
         comment=request.review_comment
     )
-    return {"message": f"成功更新 {count} 道题目", "count": count}
+    return success({"message": f"成功更新 {count} 道题目", "count": count})
 
 
 @router.post("/questions/batch")
@@ -228,7 +229,7 @@ async def batch_operation(
         if not request.question_ids:
             raise HTTPException(status_code=400, detail="缺少题目ID列表")
         count = await service.batch_delete_questions(request.question_ids)
-        return {"message": f"成功删除 {count} 道题目", "count": count}
+        return success({"message": f"成功删除 {count} 道题目", "count": count})
     
     elif request.operation == "update_status":
         if not request.question_ids:
@@ -241,7 +242,7 @@ async def batch_operation(
             status_value,
             reviewer_id=current_user.id
         )
-        return {"message": f"成功更新 {count} 道题目", "count": count}
+        return success({"message": f"成功更新 {count} 道题目", "count": count})
     
     else:
         raise HTTPException(status_code=400, detail="不支持的操作类型")
@@ -312,7 +313,7 @@ async def list_annotations(
 ):
     """获取题目的标注列表"""
     annotations = await service.get_annotations(question_id, annotation_type)
-    return [AnnotationResponse.model_validate(a) for a in annotations]
+    return success([AnnotationResponse.model_validate(a) for a in annotations])
 
 
 @router.delete("/annotations/{annotation_id}")
@@ -322,24 +323,25 @@ async def delete_annotation(
     current_user: User = Depends(get_current_user)
 ):
     """删除标注"""
-    success = await service.delete_annotation(annotation_id)
-    if not success:
+    deleted = await service.delete_annotation(annotation_id)
+    if not deleted:
         raise HTTPException(status_code=404, detail="标注不存在")
-    return {"message": "删除成功"}
+    return success({"message": "删除成功"})
 
 
 # ============ 统计 ============
 
-@router.get("/questions/statistics/summary", response_model=QuestionStatistics)
+@router.get("/questions/statistics/summary")
 async def get_statistics(
     service: QuestionService = Depends(get_question_service),
     current_user: User = Depends(get_current_user)
 ):
     """获取题库统计概览"""
-    return await service.get_statistics()
+    result = await service.get_statistics()
+    return success(result)
 
 
-@router.get("/questions/statistics/distribution", response_model=QuestionDistribution)
+@router.get("/questions/statistics/distribution")
 async def get_distribution(
     service: QuestionService = Depends(get_question_service),
     current_user: User = Depends(get_current_user)
@@ -349,12 +351,13 @@ async def get_distribution(
     by_difficulty = await service.get_distribution_by_difficulty()
     
     # TODO: 添加认知层级和来源分布
-    return QuestionDistribution(
+    result = QuestionDistribution(
         by_type=by_type,
         by_difficulty=by_difficulty,
         by_cognitive_level=[],
         by_source=[]
     )
+    return success(result)
 
 
 @router.get("/questions/statistics/by-type")
@@ -363,7 +366,8 @@ async def get_by_type(
     current_user: User = Depends(get_current_user)
 ):
     """按题型统计"""
-    return await service.get_distribution_by_type()
+    result = await service.get_distribution_by_type()
+    return success(result)
 
 
 @router.get("/questions/statistics/by-difficulty")
@@ -372,4 +376,5 @@ async def get_by_difficulty(
     current_user: User = Depends(get_current_user)
 ):
     """按难度统计"""
-    return await service.get_distribution_by_difficulty()
+    result = await service.get_distribution_by_difficulty()
+    return success(result)
