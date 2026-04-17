@@ -9,10 +9,14 @@
  *   learning_record - 学习记录追踪      (/ai/learning-records)
  *   teacher       - 教师助手            (/ai/teacher/...)
  *   diagnosis     - 学习诊断与推荐      (/ai/learning/diagnosis, /ai/learning/recommendations)
+ *   knowledge     - 知识库管理        (/ai/knowledge-bases/...)
+ *   retrieval     - RAG语义检索       (/ai/retrieval)
  */
 
 export * from './chat'
 export * from './learning_record'
 export * from './teacher'
 export * from './diagnosis'
+export * from './knowledge'
+export * from './retrieval'
 export * as learningAgentAPI from './learning'

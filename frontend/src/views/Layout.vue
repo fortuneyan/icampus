@@ -162,6 +162,7 @@
           </el-breadcrumb>
         </div>
         <div class="header-right">
+          <ThemeSwitch />
           <el-button type="primary" link @click="goToAIChat">
             <el-icon><ChatDotRound /></el-icon>
             AI 助手
@@ -216,6 +217,7 @@ import {
   Monitor,
   UserFilled
 } from '@element-plus/icons-vue'
+import ThemeSwitch from '@/components/ThemeSwitch.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -289,14 +291,6 @@ const handleCommand = (command: string) => {
     
     .logo {
       height: 60px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 10px;
-      color: #fff;
-      font-size: 18px;
-      font-weight: bold;
-      border-bottom: 1px solid #3a4554;
     }
     
     .menu {

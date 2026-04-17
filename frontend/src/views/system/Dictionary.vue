@@ -119,8 +119,8 @@
         </el-form-item>
         <el-form-item label="状态" prop="status">
           <el-radio-group v-model="typeFormData.status">
-            <el-radio label="active">启用</el-radio>
-            <el-radio label="inactive">禁用</el-radio>
+            <el-radio value="active">启用</el-radio>
+            <el-radio value="inactive">禁用</el-radio>
           </el-radio-group>
         </el-form-item>
       </el-form>
@@ -164,8 +164,8 @@
         </el-form-item>
         <el-form-item label="状态" prop="status">
           <el-radio-group v-model="itemFormData.status">
-            <el-radio label="active">启用</el-radio>
-            <el-radio label="inactive">禁用</el-radio>
+            <el-radio value="active">启用</el-radio>
+            <el-radio value="inactive">禁用</el-radio>
           </el-radio-group>
         </el-form-item>
       </el-form>

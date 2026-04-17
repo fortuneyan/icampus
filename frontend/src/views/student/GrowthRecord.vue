@@ -152,8 +152,8 @@
         </el-row>
         <el-form-item label="状态">
           <el-radio-group v-model="formData.status">
-            <el-radio label="draft">草稿</el-radio>
-            <el-radio label="published">发布</el-radio>
+            <el-radio value="draft">草稿</el-radio>
+            <el-radio value="published">发布</el-radio>
           </el-radio-group>
         </el-form-item>
       </el-form>

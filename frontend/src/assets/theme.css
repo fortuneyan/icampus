@@ -1,0 +1,293 @@
+/* 智慧校园主题系统 */
+
+/* ============ 默认明亮主题 ============ */
+:root {
+  --primary-color: #409eff;
+  --primary-light: #79bbff;
+  --primary-dark: #337ecc;
+  --success-color: #67c23a;
+  --warning-color: #e6a23c;
+  --danger-color: #f56c6c;
+  --info-color: #909399;
+  
+  --bg-color: #f5f7fa;
+  --bg-white: #ffffff;
+  --bg-dark: #1d2129;
+  
+  --text-primary: #303133;
+  --text-regular: #606266;
+  --text-secondary: #909399;
+  --text-placeholder: #c0c4cc;
+  
+  --border-color: #dcdfe6;
+  --border-light: #e4e7ed;
+  --border-lighter: #ebeef5;
+  
+  --menu-bg: #304156;
+  --menu-text: #bfcbd9;
+  --menu-active: #409eff;
+  
+  --header-bg: #ffffff;
+  --header-text: #333333;
+  
+  --card-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.1);
+  --border-radius: 4px;
+
+  --el-menu-bg-color: #304156;
+  --el-menu-text-color: #bfcbd9;
+  --el-menu-hover-bg-color: #3a3d42;
+  --el-menu-hover-text-color: #409eff;
+  --el-menu-active-bg-color: #263445;
+}
+
+html .el-menu-item:hover,
+html .el-sub-menu__title:hover {
+  background-color: #3a3d42 !important;
+}
+
+/* ============ 暗黑主题 ============ */
+html.dark-theme {
+  --primary-color: #409eff;
+  --primary-light: #337ecc;
+  --primary-dark: #79bbff;
+  --success-color: #67c23a;
+  --warning-color: #e6a23c;
+  --danger-color: #f56c6c;
+  --info-color: #909399;
+  
+  --bg-color: #1d2129;
+  --bg-white: #242424;
+  --bg-dark: #000000;
+  
+  --text-primary: #e5eaf3;
+  --text-regular: #cfd3dc;
+  --text-secondary: #a3a6ad;
+  --text-placeholder: #8d9095;
+  
+  --border-color: #4c4d4f;
+  --border-light: #414243;
+  --border-lighter: #363637;
+  
+  --menu-bg: #1d2129;
+  --menu-text: #cfd3dc;
+  --menu-active: #409eff;
+  
+  --header-bg: #242424;
+  --header-text: #e5eaf3;
+  
+  --card-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.4);
+  
+  background-color: var(--bg-color);
+  color: var(--text-primary);
+}
+
+html.dark-theme body {
+  background-color: var(--bg-color);
+}
+
+html.dark-theme .el-menu {
+  background-color: var(--menu-bg) !important;
+  border-right: none !important;
+}
+
+html .el-menu-item:hover,
+html .el-sub-menu__title:hover,
+html.dark-theme .el-menu-item:hover,
+html.dark-theme .el-sub-menu__title:hover {
+  background-color: #3a3d42 !important;
+}
+
+html.dark-theme .el-menu-item,
+html.dark-theme .el-sub-menu__title {
+  color: var(--menu-text) !important;
+}
+
+html.dark-theme .el-menu-item:hover,
+html.dark-theme .el-sub-menu__title:hover {
+  background-color: #3a3d42 !important;
+}
+
+html.dark-theme .el-card {
+  background-color: var(--bg-white);
+  border-color: var(--border-color);
+}
+
+html.dark-theme .el-table {
+  background-color: var(--bg-white);
+  --el-table-tr-bg-color: var(--bg-white);
+  --el-table-header-bg-color: var(--bg-color);
+}
+
+html.dark-theme .el-input__wrapper,
+html.dark-theme .el-select__wrapper,
+html.dark-theme .el-textarea__inner {
+  background-color: var(--bg-white);
+  box-shadow: 0 0 0 1px var(--border-color) inset;
+}
+
+html.dark-theme .el-dialog {
+  background-color: var(--bg-white);
+}
+
+html.dark-theme .el-dropdown-menu {
+  background-color: var(--bg-white);
+  border-color: var(--border-color);
+}
+
+/* ============ 校园主题 ============ */
+html.colorful-theme {
+  --primary-color: #6366f1;
+  --primary-light: #818cf8;
+  --primary-dark: #4f46e5;
+  --success-color: #10b981;
+  --warning-color: #f59e0b;
+  --danger-color: #ef4444;
+  --info-color: #8b5cf6;
+  
+  --bg-color: #f0f2f5;
+  --bg-white: #ffffff;
+  --bg-dark: #1e1e2d;
+  
+  --text-primary: #1f2937;
+  --text-regular: #4b5563;
+  --text-secondary: #6b7280;
+  --text-placeholder: #9ca3af;
+  
+  --border-color: #e5e7eb;
+  --border-light: #f3f4f6;
+  --border-lighter: #f9fafb;
+  
+  --menu-bg: linear-gradient(180deg, #6366f1 0%, #4f46e5 100%);
+  --menu-text: #ffffff;
+  --menu-active: #fbbf24;
+  
+  --header-bg: linear-gradient(90deg, #6366f1 0%, #8b5cf6 100%);
+  --header-text: #ffffff;
+  
+  --card-shadow: 0 4px 16px rgba(99, 102, 241, 0.15);
+  --border-radius: 12px;
+  
+  background: linear-gradient(135deg, #f5f7fa 0%, #e0e7ff 100%);
+}
+
+html.colorful-theme body {
+  background: linear-gradient(135deg, #f5f7fa 0%, #e0e7ff 100%);
+}
+
+html.colorful-theme .el-menu {
+  background: var(--menu-bg) !important;
+  border-right: none !important;
+  box-shadow: 2px 0 8px rgba(99, 102, 241, 0.2);
+}
+
+html .el-menu-item:hover,
+html .el-sub-menu__title:hover {
+  background-color: #3a3d42 !important;
+}
+
+html.colorful-theme .el-menu-item,
+html.colorful-theme .el-sub-menu__title {
+  color: var(--menu-text) !important;
+}
+
+html.colorful-theme .el-menu-item:hover,
+html.colorful-theme .el-sub-menu__title:hover {
+  background: rgba(255, 255, 255, 0.25) !important;
+}
+
+html.colorful-theme .el-menu-item.is-active {
+  background: rgba(255, 255, 255, 0.2) !important;
+  border-left: 3px solid var(--menu-active);
+}
+
+html.colorful-theme .el-card {
+  background: var(--bg-white);
+  border: none;
+  border-radius: var(--border-radius);
+  box-shadow: var(--card-shadow);
+}
+
+html.colorful-theme .el-button--primary {
+  background: #4f46e5;
+  border: none;
+  border-radius: 6px;
+}
+
+html.colorful-theme .el-button--primary:hover {
+  background: #4338ca;
+}
+
+html.colorful-theme .el-header {
+  background: var(--header-bg);
+  box-shadow: 0 2px 8px rgba(99, 102, 241, 0.2);
+}
+
+/* Aside 背景样式 */
+html .el-aside,
+html.dark-theme .el-aside,
+html.colorful-theme .el-aside {
+  background: var(--menu-bg);
+}
+
+/* Logo 样式 - 所有主题 */
+html .el-aside .logo,
+html.dark-theme .el-aside .logo,
+html.colorful-theme .el-aside .logo {
+  height: 60px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  font-size: 18px;
+  font-weight: bold;
+}
+
+/* 默认/明亮主题 */
+html .el-aside .logo {
+  color: #fff;
+  background: #303f4f;
+  border-bottom: 1px solid #3a4554;
+}
+
+/* 暗黑主题 */
+html.dark-theme .el-aside {
+  background: #304156;
+}
+
+html.dark-theme .el-aside .logo {
+  color: #fff;
+  background: #1d2129;
+  border-bottom: 1px solid #2b313a;
+}
+
+/* 校园风格 */
+html.colorful-theme .el-aside {
+  background: #3730a3;
+}
+
+html.colorful-theme .el-aside .logo {
+  background: #6366f1;
+  border-bottom: none;
+  color: white;
+}
+
+html.colorful-theme .el-table {
+  border-radius: var(--border-radius);
+  overflow: hidden;
+}
+
+html.colorful-theme .el-table th.el-table__cell {
+  background: linear-gradient(90deg, #6366f1 0%, #8b5cf6 100%);
+  color: white;
+}
+
+/* 动画效果 */
+html.colorful-theme .el-card,
+html.colorful-theme .el-button {
+  transition: all 0.3s ease;
+}
+
+html.colorful-theme .el-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(99, 102, 241, 0.25);
+}

@@ -95,8 +95,8 @@
         </el-form-item>
         <el-form-item label="显示状态" prop="visible">
           <el-radio-group v-model="formData.visible">
-            <el-radio :label="true">显示</el-radio>
-            <el-radio :label="false">隐藏</el-radio>
+            <el-radio :value="true">显示</el-radio>
+            <el-radio :value="false">隐藏</el-radio>
           </el-radio-group>
         </el-form-item>
         <el-form-item label="启用状态" prop="enabled">
