@@ -5,6 +5,7 @@ API 路由注册
 
 两套路由通过独立 APIRouter 管理，在 main.py 中分开挂载，便于维护和权限控制。
 """
+
 from fastapi import APIRouter
 
 # ==================== 基础管理路由 ====================
@@ -24,6 +25,7 @@ from app.api.v1.extended import router as extended_router
 
 # ==================== AI 功能路由 ====================
 from app.api.v1.ai import router as ai_router
+from app.api.v1.ai import knowledge_base, retrieval
 
 # ----- 基础管理聚合路由 -----
 api_router = APIRouter()
@@ -48,3 +50,7 @@ api_router.include_router(extended_router, prefix="/extended", tags=["扩展业�
 ai_api_router = APIRouter()
 
 ai_api_router.include_router(ai_router, prefix="/ai", tags=["AI智能模块"])
+ai_api_router.include_router(
+    knowledge_base.router, prefix="/knowledge-bases", tags=["知识库管理"]
+)
+ai_api_router.include_router(retrieval.router, prefix="/retrieval", tags=["语义检索"])

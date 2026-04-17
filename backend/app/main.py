@@ -18,6 +18,9 @@ from sqlalchemy import text
 from app.core.config import settings
 from app.core.database import engine, Base, async_session_factory
 from app.core.security import get_password_hash
+from app.core.redis_client import get_redis_client, close_redis_connection
+from app.core.rate_limiter import set_rate_limiter_redis
+from app.middleware.rate_limit import RateLimitMiddleware
 from app.api.v1 import api_router, ai_api_router
 
 # 配置日志
@@ -67,9 +70,22 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.warning(f"种子数据初始化失败（非致命）: {e}")
 
+    # 初始化 Redis 连接
+    try:
+        redis_client = await get_redis_client()
+        await redis_client.connect()
+        logger.info("Redis connected successfully")
+        # 为限流器注入 Redis 客户端
+        set_rate_limiter_redis(redis_client)
+        logger.info("Rate limiter connected to Redis")
+    except Exception as e:
+        logger.warning(f"Redis 连接失败（非致命，将使用内存降级）: {e}")
+
     yield
     # 关闭时
     logger.info("Shutting down Smart Campus Platform...")
+    await close_redis_connection()
+    logger.info("Redis connection closed")
     await engine.dispose()
 
 
@@ -92,6 +108,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# 注册限流中间件（CORS 之后，后注册先执行：限流 → CORS）
+app.add_middleware(RateLimitMiddleware)
 
 # ==================== 路由注册 ====================
 

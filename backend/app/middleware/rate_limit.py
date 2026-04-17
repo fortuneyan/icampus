@@ -106,8 +106,8 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         # 生成限流key
         key = self._generate_key(request, client_ip)
         
-        # 检查限流
-        result = self.limiter.check_rate_limit(key, limit)
+        # 检查限流（异步，支持 Redis 后端）
+        result = await self.limiter.check_rate_limit(key, limit)
         
         # 构建响应头
         headers = self._build_headers(

@@ -42,3 +42,5 @@ def get_logger(name: str) -> logging.Logger:
 
 
 app_logger = get_logger("smart-campus")
+
+logger = app_logger

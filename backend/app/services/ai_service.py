@@ -12,9 +12,18 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.ai_model import AISession, AIMessage, AIConfig
 from app.schemas.ai import (
-    AbilityProfile, AbilityDimension, KnowledgeGraph, KnowledgeNode, KnowledgeEdge,
-    AbilityRadarData, RadarIndicator, DiagnosisReport,
-    QuestionOutput, QuestionOption, QuestionSetOutput, QuestionGenerateRequest,
+    AbilityProfile,
+    AbilityDimension,
+    KnowledgeGraph,
+    KnowledgeNode,
+    KnowledgeEdge,
+    AbilityRadarData,
+    RadarIndicator,
+    DiagnosisReport,
+    QuestionOutput,
+    QuestionOption,
+    QuestionSetOutput,
+    QuestionGenerateRequest,
 )
 from app.core.exceptions import NotFoundException
 from app.services.base_service import BaseService
@@ -300,7 +309,12 @@ class AIService:
         from sqlalchemy import select, desc, func
 
         # 获取成绩历史（最近 20 条）
-        query = select(Score).where(Score.student_id == student_id).order_by(desc(Score.recorded_at)).limit(20)
+        query = (
+            select(Score)
+            .where(Score.student_id == student_id)
+            .order_by(desc(Score.recorded_at))
+            .limit(20)
+        )
         result = await self.db.execute(query)
         scores = list(result.scalars().all())
 
@@ -315,9 +329,12 @@ class AIService:
         ]
 
         # 获取学习记录
-        rec_query = select(LearningRecord).where(
-            LearningRecord.user_id == student_id
-        ).order_by(desc(LearningRecord.created_at)).limit(30)
+        rec_query = (
+            select(LearningRecord)
+            .where(LearningRecord.user_id == student_id)
+            .order_by(desc(LearningRecord.created_at))
+            .limit(30)
+        )
         rec_result = await self.db.execute(rec_query)
         records = list(rec_result.scalars().all())
 
@@ -385,13 +402,15 @@ class AIService:
                 level, trend = "薄弱", "down"
                 weaknesses.append(dim_name)
 
-            dimensions.append(AbilityDimension(
-                name=dim_name,
-                score=round(dim_avg, 1),
-                level=level,
-                trend=trend,
-                evidence=[f"基于{len(scores_for_type)}次{score_type}的平均得分"],
-            ))
+            dimensions.append(
+                AbilityDimension(
+                    name=dim_name,
+                    score=round(dim_avg, 1),
+                    level=level,
+                    trend=trend,
+                    evidence=[f"基于{len(scores_for_type)}次{score_type}的平均得分"],
+                )
+            )
 
         # 确保至少有基础维度
         if not dimensions:
@@ -430,15 +449,37 @@ class AIService:
 
     async def get_ability_radar(
         self,
-        student_id: UUID,
-        course_id: Optional[UUID] = None,
+        student_id: str,
+        course_id: Optional[str] = None,
     ) -> AbilityRadarData:
         """获取能力雷达图数据（简化版供前端渲染）"""
         from app.models.score import Score
+        from app.models.student import Student
         from sqlalchemy import select, desc
+        from uuid import UUID
+
+        try:
+            student_uuid = UUID(student_id)
+        except ValueError:
+            query = select(Student).where(Student.student_number == student_id)
+            result = await self.db.execute(query)
+            student = result.scalar_one_or_none()
+            if not student:
+                return AbilityRadarData(
+                    dimensions=[],
+                    student_values=[],
+                    class_avg_values=[],
+                    max_value=100,
+                )
+            student_uuid = student.id
 
         # 获取最近成绩
-        query = select(Score).where(Score.student_id == student_id).order_by(desc(Score.recorded_at)).limit(20)
+        query = (
+            select(Score)
+            .where(Score.student_id == student_uuid)
+            .order_by(desc(Score.recorded_at))
+            .limit(20)
+        )
         result = await self.db.execute(query)
         scores = list(result.scalars().all())
 
@@ -458,10 +499,12 @@ class AIService:
         indicators = []
         for score_type, indicator_name in radar_map.items():
             if score_type in score_data:
-                indicators.append(RadarIndicator(
-                    name=indicator_name,
-                    value=score_data[score_type],
-                ))
+                indicators.append(
+                    RadarIndicator(
+                        name=indicator_name,
+                        value=score_data[score_type],
+                    )
+                )
 
         # 若无数据，提供默认指标
         if not indicators:
@@ -474,8 +517,12 @@ class AIService:
         highest = max(scores_list) if scores_list else 0
         lowest = min(scores_list) if scores_list else 0
 
-        highest_name = next((ind.name for ind in indicators if ind.value == highest), "未知")
-        lowest_name = next((ind.name for ind in indicators if ind.value == lowest), "未知")
+        highest_name = next(
+            (ind.name for ind in indicators if ind.value == highest), "未知"
+        )
+        lowest_name = next(
+            (ind.name for ind in indicators if ind.value == lowest), "未知"
+        )
 
         return AbilityRadarData(
             student_id=str(student_id),
@@ -505,22 +552,34 @@ class AIService:
         from sqlalchemy import select, desc
 
         # 获取成绩历史
-        query = select(Score).where(Score.student_id == student_id).order_by(desc(Score.recorded_at)).limit(20)
+        query = (
+            select(Score)
+            .where(Score.student_id == student_id)
+            .order_by(desc(Score.recorded_at))
+            .limit(20)
+        )
         result = await self.db.execute(query)
         scores = list(result.scalars().all())
 
-        score_data = {str(s.course_id): float(s.score) if s.score else 0 for s in scores}
+        score_data = {
+            str(s.course_id): float(s.score) if s.score else 0 for s in scores
+        }
 
         # 获取学习记录
-        rec_query = select(LearningRecord).where(
-            LearningRecord.user_id == student_id
-        ).order_by(desc(LearningRecord.created_at)).limit(30)
+        rec_query = (
+            select(LearningRecord)
+            .where(LearningRecord.user_id == student_id)
+            .order_by(desc(LearningRecord.created_at))
+            .limit(30)
+        )
         rec_result = await self.db.execute(rec_query)
         records = list(rec_result.scalars().all())
 
         # 构建知识图谱节点（以数学为例的层次结构）
         # 实际项目中这些节点应从题库/教材结构化数据中读取
-        course_label = course_name or f"课程{str(course_id)[:8] if course_id else '未知'}"
+        course_label = (
+            course_name or f"课程{str(course_id)[:8] if course_id else '未知'}"
+        )
 
         # 知识节点定义（示例层次结构，可扩展）
         node_definitions = [
@@ -542,41 +601,68 @@ class AIService:
         ]
 
         nodes: List[KnowledgeNode] = []
-        for node_id, name, parent_id, difficulty, importance, prerequisites, tags in node_definitions:
+        for (
+            node_id,
+            name,
+            parent_id,
+            difficulty,
+            importance,
+            prerequisites,
+            tags,
+        ) in node_definitions:
             # 查找该知识点在成绩中的得分（简化：用课程得分模拟）
             course_key = str(course_id) if course_id else None
             base_score = score_data.get(course_key, 60.0) if course_key else 60.0
 
             # 根据节点ID和历史记录计算掌握度
             # 基础运算最简单 → 高分，复杂推导 → 低分
-            mastery = min(100, max(20,
-                base_score - (difficulty - 1) * 8
-                + sum(r.progress for r in records if r.resource_name and name in r.resource_name) / max(1, len(records)) * 5
-            ))
-            mastery = round(mastery + (hash(node_id) % 20 - 10), 1)  # 模拟不同知识点的差异
+            mastery = min(
+                100,
+                max(
+                    20,
+                    base_score
+                    - (difficulty - 1) * 8
+                    + sum(
+                        r.progress
+                        for r in records
+                        if r.resource_name and name in r.resource_name
+                    )
+                    / max(1, len(records))
+                    * 5,
+                ),
+            )
+            mastery = round(
+                mastery + (hash(node_id) % 20 - 10), 1
+            )  # 模拟不同知识点的差异
             mastery = max(10, min(99, mastery))
 
-            nodes.append(KnowledgeNode(
-                node_id=node_id,
-                name=name,
-                parent_id=parent_id,
-                mastery=mastery,
-                difficulty=difficulty,
-                importance=importance,
-                prerequisites=prerequisites,
-                tags=tags,
-                exam_frequency=round(importance / 100 * (hash(node_id) % 10 + 1), 1),
-            ))
+            nodes.append(
+                KnowledgeNode(
+                    node_id=node_id,
+                    name=name,
+                    parent_id=parent_id,
+                    mastery=mastery,
+                    difficulty=difficulty,
+                    importance=importance,
+                    prerequisites=prerequisites,
+                    tags=tags,
+                    exam_frequency=round(
+                        importance / 100 * (hash(node_id) % 10 + 1), 1
+                    ),
+                )
+            )
 
         # 构建边
         edges: List[KnowledgeEdge] = []
         for node in nodes:
             for prereq in node.prerequisites:
-                edges.append(KnowledgeEdge(
-                    source=prereq,
-                    target=node.node_id,
-                    relation="prerequisite",
-                ))
+                edges.append(
+                    KnowledgeEdge(
+                        source=prereq,
+                        target=node.node_id,
+                        relation="prerequisite",
+                    )
+                )
 
         # 找最薄弱节点（掌握度 < 50）
         weakest = [n.node_id for n in nodes if n.mastery < 50]
@@ -584,7 +670,8 @@ class AIService:
         # 找学习前沿：前置已掌握（>= 60）但自身未掌握（< 70）的节点
         mastered_ids = {n.node_id for n in nodes if n.mastery >= 60}
         learning_frontier = [
-            n.node_id for n in nodes
+            n.node_id
+            for n in nodes
             if all(p in mastered_ids for p in n.prerequisites) and n.mastery < 70
         ]
 
@@ -618,7 +705,9 @@ class AIService:
 
         knowledge_graph = None
         if include_knowledge_graph:
-            knowledge_graph = await self.get_knowledge_graph(student_id, course_id, course_name)
+            knowledge_graph = await self.get_knowledge_graph(
+                student_id, course_id, course_name
+            )
 
         radar_data = await self.get_ability_radar(student_id, course_id)
 
@@ -626,15 +715,25 @@ class AIService:
         recommendations = []
         if ability_profile:
             for sug in ability_profile.improvement_suggestions:
-                recommendations.append({"type": "ability", "text": sug, "priority": "high"})
+                recommendations.append(
+                    {"type": "ability", "text": sug, "priority": "high"}
+                )
         if knowledge_graph and knowledge_graph.weakest_nodes:
-            recommendations.append({
-                "type": "knowledge",
-                "text": f"建议优先攻克{len(knowledge_graph.weakest_nodes)}个薄弱知识点",
-                "priority": "medium",
-            })
+            recommendations.append(
+                {
+                    "type": "knowledge",
+                    "text": f"建议优先攻克{len(knowledge_graph.weakest_nodes)}个薄弱知识点",
+                    "priority": "medium",
+                }
+            )
         if not recommendations:
-            recommendations.append({"type": "general", "text": "学习状态良好，请继续保持", "priority": "low"})
+            recommendations.append(
+                {
+                    "type": "general",
+                    "text": "学习状态良好，请继续保持",
+                    "priority": "low",
+                }
+            )
 
         return DiagnosisReport(
             student_id=str(student_id),
@@ -684,7 +783,9 @@ class AIService:
         }
 
         # 构建 AI prompt
-        question_types_str = "、".join([type_map.get(t, t) for t in request.question_types])
+        question_types_str = "、".join(
+            [type_map.get(t, t) for t in request.question_types]
+        )
         difficulty_text = difficulty_map.get(request.difficulty, "中等")
 
         knowledge_section = ""
@@ -699,7 +800,7 @@ class AIService:
 - 题型：{question_types_str}
 - 难度：{difficulty_text}
 {knowledge_section}
-{f'- 特殊要求：{request.requirements}' if request.requirements else ''}
+{f"- 特殊要求：{request.requirements}" if request.requirements else ""}
 
 请按以下 JSON 格式返回 {request.count} 道题目：
 [
@@ -730,7 +831,9 @@ class AIService:
 
         try:
             response = await self._call_llm(config, prompt, "deepseek")
-            questions = self._parse_questions_from_response(response, request.question_types)
+            questions = self._parse_questions_from_response(
+                response, request.question_types
+            )
 
             if not questions:
                 return self._generate_sample_questions(request, uuid4().hex)
@@ -759,12 +862,13 @@ class AIService:
         import re
 
         # 尝试提取 JSON
-        json_match = re.search(r'\[.*\]', response, re.DOTALL)
+        json_match = re.search(r"\[.*\]", response, re.DOTALL)
         if not json_match:
             return []
 
         try:
             import json
+
             data = json.loads(json_match.group())
         except json.JSONDecodeError:
             return []
@@ -778,7 +882,13 @@ class AIService:
                 continue
 
             question_type = item.get("question_type", "single")
-            if question_type not in ["single", "multiple", "fill", "essay", "calculation"]:
+            if question_type not in [
+                "single",
+                "multiple",
+                "fill",
+                "essay",
+                "calculation",
+            ]:
                 question_type = expected_types[0] if expected_types else "single"
 
             # 处理选项
@@ -793,18 +903,20 @@ class AIService:
                     for i, opt in enumerate(item.get("options", []))
                 ]
 
-            questions.append(QuestionOutput(
-                content=item.get("content", ""),
-                question_type=question_type,
-                options=options,
-                answer=item.get("answer"),
-                analysis=item.get("analysis"),
-                difficulty=item.get("difficulty", 2),
-                score=float(item.get("score", 5)),
-                knowledge_points=item.get("knowledge_points", []),
-                source="ai",
-                saved=False,
-            ))
+            questions.append(
+                QuestionOutput(
+                    content=item.get("content", ""),
+                    question_type=question_type,
+                    options=options,
+                    answer=item.get("answer"),
+                    analysis=item.get("analysis"),
+                    difficulty=item.get("difficulty", 2),
+                    score=float(item.get("score", 5)),
+                    knowledge_points=item.get("knowledge_points", []),
+                    source="ai",
+                    saved=False,
+                )
+            )
 
         return questions
 
@@ -816,7 +928,9 @@ class AIService:
 
         # 根据题型生成示例
         sample_questions: List[QuestionOutput] = []
-        type_cycle = request.question_types * (request.count // len(request.question_types) + 1)
+        type_cycle = request.question_types * (
+            request.count // len(request.question_types) + 1
+        )
 
         for i in range(min(request.count, len(type_cycle))):
             q_type = type_cycle[i]
@@ -827,9 +941,15 @@ class AIService:
                     question_type="single",
                     options=[
                         QuestionOption(label="A", content="选项A内容", is_correct=True),
-                        QuestionOption(label="B", content="选项B内容", is_correct=False),
-                        QuestionOption(label="C", content="选项C内容", is_correct=False),
-                        QuestionOption(label="D", content="选项D内容", is_correct=False),
+                        QuestionOption(
+                            label="B", content="选项B内容", is_correct=False
+                        ),
+                        QuestionOption(
+                            label="C", content="选项C内容", is_correct=False
+                        ),
+                        QuestionOption(
+                            label="D", content="选项D内容", is_correct=False
+                        ),
                     ],
                     answer="A",
                     analysis=f"本题考察{request.topic}的基本概念，选项A正确描述了这一知识点。",
@@ -845,9 +965,13 @@ class AIService:
                     question_type="multiple",
                     options=[
                         QuestionOption(label="A", content="选项A内容", is_correct=True),
-                        QuestionOption(label="B", content="选项B内容", is_correct=False),
+                        QuestionOption(
+                            label="B", content="选项B内容", is_correct=False
+                        ),
                         QuestionOption(label="C", content="选项C内容", is_correct=True),
-                        QuestionOption(label="D", content="选项D内容", is_correct=False),
+                        QuestionOption(
+                            label="D", content="选项D内容", is_correct=False
+                        ),
                     ],
                     answer="AC",
                     analysis=f"本题考察{request.topic}的多个方面，选项A和C正确。",
@@ -920,7 +1044,11 @@ class AIService:
         options_json = None
         if question_data.options:
             options_json = [
-                {"label": opt.label, "content": opt.content, "is_correct": opt.is_correct}
+                {
+                    "label": opt.label,
+                    "content": opt.content,
+                    "is_correct": opt.is_correct,
+                }
                 for opt in question_data.options
             ]
 
@@ -940,4 +1068,3 @@ class AIService:
         await self.db.refresh(question)
 
         return str(question.id)
-

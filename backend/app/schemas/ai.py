@@ -11,6 +11,8 @@ class ChatRequest(BaseModel):
     session_id: Optional[UUID] = None
     message: str = Field(..., max_length=4000)
     model_type: str = "deepseek"
+    knowledge_base_id: Optional[str] = Field(None, description="知识库ID，用于RAG增强")
+    use_rag: bool = Field(False, description="是否启用RAG增强")
 
 
 class ChatResponse(BaseModel):
@@ -52,8 +54,10 @@ class AIConfigUpdate(BaseModel):
 
 # ==================== 能力画像 ====================
 
+
 class AbilityDimension(BaseModel):
     """能力维度"""
+
     name: str  # 维度名称，如 "计算能力"、"逻辑推理"
     score: float = Field(..., ge=0, le=100)  # 得分 0-100
     level: str  # 等级：薄弱/一般/良好/优秀
@@ -63,6 +67,7 @@ class AbilityDimension(BaseModel):
 
 class AbilityProfile(BaseModel):
     """能力画像"""
+
     student_id: str
     overall_score: float  # 综合能力分
     dimensions: List[AbilityDimension]
@@ -74,8 +79,10 @@ class AbilityProfile(BaseModel):
 
 # ==================== 知识图谱 ====================
 
+
 class KnowledgeNode(BaseModel):
     """知识节点"""
+
     node_id: str
     name: str
     parent_id: Optional[str] = None
@@ -89,6 +96,7 @@ class KnowledgeNode(BaseModel):
 
 class KnowledgeEdge(BaseModel):
     """知识边（节点关系）"""
+
     source: str  # 源节点ID
     target: str  # 目标节点ID
     relation: str  # 关系：prerequisite/related/same_module
@@ -96,6 +104,7 @@ class KnowledgeEdge(BaseModel):
 
 class KnowledgeGraph(BaseModel):
     """知识图谱"""
+
     student_id: str
     course_id: Optional[str] = None
     course_name: Optional[str] = None
@@ -108,14 +117,17 @@ class KnowledgeGraph(BaseModel):
 
 # ==================== 能力雷达图 ====================
 
+
 class RadarIndicator(BaseModel):
     """雷达图指标"""
+
     name: str
     value: float = Field(..., ge=0, le=100)
 
 
 class AbilityRadarData(BaseModel):
     """能力雷达图数据"""
+
     student_id: str
     indicators: List[RadarIndicator]
     avg_score: float  # 平均分
@@ -125,6 +137,7 @@ class AbilityRadarData(BaseModel):
 
 
 # ==================== 诊断报告 ====================
+
 
 class DiagnosisReportRequest(BaseModel):
     student_id: UUID
@@ -136,6 +149,7 @@ class DiagnosisReportRequest(BaseModel):
 
 class DiagnosisReport(BaseModel):
     """综合诊断报告"""
+
     student_id: str
     report_id: str
     ability_profile: Optional[AbilityProfile] = None
@@ -148,8 +162,10 @@ class DiagnosisReport(BaseModel):
 
 # ==================== AI 出题系统 ====================
 
+
 class QuestionOption(BaseModel):
     """选择题选项"""
+
     label: str  # A/B/C/D
     content: str  # 选项内容
     is_correct: bool = False
@@ -157,6 +173,7 @@ class QuestionOption(BaseModel):
 
 class QuestionOutput(BaseModel):
     """生成的题目"""
+
     question_id: Optional[str] = None  # 保存后返回
     content: str  # 题目内容
     question_type: str = "single"  # single/multiple/fill/essay/calculation
@@ -172,6 +189,7 @@ class QuestionOutput(BaseModel):
 
 class QuestionSetOutput(BaseModel):
     """生成的题目集"""
+
     set_id: str  # 题目集标识
     title: str  # 集标题
     course_name: str  # 课程名称
@@ -185,14 +203,17 @@ class QuestionSetOutput(BaseModel):
 
 class QuestionGenerateRequest(BaseModel):
     """AI 出题请求"""
+
     course_name: str = Field(..., description="课程名称")
     grade_level: str = Field(..., description="年级")
     topic: str = Field(..., description="课题/知识点")
     question_types: List[str] = Field(
-        default=["single"], 
-        description="题型列表: single/multiple/fill/essay/calculation"
+        default=["single"],
+        description="题型列表: single/multiple/fill/essay/calculation",
     )
     difficulty: int = Field(default=2, ge=1, le=5, description="难度 1-5")
     count: int = Field(default=5, ge=1, le=50, description="题目数量")
-    knowledge_points: Optional[List[str]] = Field(default=None, description="指定知识点")
+    knowledge_points: Optional[List[str]] = Field(
+        default=None, description="指定知识点"
+    )
     requirements: Optional[str] = Field(default=None, description="特殊要求")

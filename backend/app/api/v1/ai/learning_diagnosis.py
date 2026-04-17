@@ -1,6 +1,7 @@
 """
 学习诊断与个性化推荐接口
 """
+
 from typing import Optional, List
 from uuid import UUID
 from datetime import datetime
@@ -22,6 +23,7 @@ router = APIRouter()
 
 # ==================== 学习诊断 ====================
 
+
 class DiagnosisRequest(BaseModel):
     student_id: UUID
     course_id: Optional[UUID] = None
@@ -41,46 +43,52 @@ async def diagnose_learning(
     分析学生的学习情况，提供诊断报告和改进建议
     """
     ai_service = AIService(db)
-    
+
     # 获取学生的最近成绩
-    score_query = select(Score).where(
-        Score.student_id == request.student_id
-    ).order_by(desc(Score.created_at)).limit(10)
+    score_query = (
+        select(Score)
+        .where(Score.student_id == request.student_id)
+        .order_by(desc(Score.created_at))
+        .limit(10)
+    )
     score_result = await db.execute(score_query)
     scores = score_result.scalars().all()
-    
+
     scores_data = [
         {
             "course": s.course_id,
             "score": float(s.score) if s.score else 0,
-            "exam_type": s.score_type
+            "exam_type": s.score_type,
         }
         for s in scores
     ]
-    
+
     # 获取学生的学习记录
-    record_query = select(LearningRecord).where(
-        LearningRecord.user_id == request.student_id
-    ).order_by(desc(LearningRecord.created_at)).limit(20)
+    record_query = (
+        select(LearningRecord)
+        .where(LearningRecord.user_id == request.student_id)
+        .order_by(desc(LearningRecord.created_at))
+        .limit(20)
+    )
     record_result = await db.execute(record_query)
     records = record_result.scalars().all()
-    
+
     records_data = [
         {
             "resource_name": r.resource_name,
             "action_type": r.action_type,
             "duration": r.duration,
-            "progress": r.progress
+            "progress": r.progress,
         }
         for r in records
     ]
-    
+
     # 构建诊断提示
     prompt = f"""
 请对学生的学习情况进行诊断分析：
 
 学生ID: {request.student_id}
-{f'课程: {request.course_name}' if request.course_name else ''}
+{f"课程: {request.course_name}" if request.course_name else ""}
 
 最近成绩：
 {scores_data}
@@ -107,36 +115,41 @@ async def diagnose_learning(
     ]
 }}
 """
-    
+
     try:
-        result = await ai_service.chat(
-            current_user.id,
-            prompt,
-            None,
-            "deepseek"
-        )
+        result = await ai_service.chat(current_user.id, prompt, None, "deepseek")
         return success(result)
     except Exception:
         # AI服务不可用时返回基础诊断
-        avg_score = sum(s.get("score", 0) for s in scores_data) / len(scores_data) if scores_data else 0
-        
+        avg_score = (
+            sum(s.get("score", 0) for s in scores_data) / len(scores_data)
+            if scores_data
+            else 0
+        )
+
         basic_diagnosis = {
-            "overall_evaluation": "基于成绩数据的初步诊断" if scores_data else "暂无足够数据进行诊断",
-            "knowledge_mastery": f"最近{len(scores_data)}次考试平均成绩为{avg_score:.1f}分" if scores_data else "暂无成绩数据",
-            "learning_attitude": "建议保持规律的学习习惯" if records_data else "暂无学习记录",
+            "overall_evaluation": "基于成绩数据的初步诊断"
+            if scores_data
+            else "暂无足够数据进行诊断",
+            "knowledge_mastery": f"最近{len(scores_data)}次考试平均成绩为{avg_score:.1f}分"
+            if scores_data
+            else "暂无成绩数据",
+            "learning_attitude": "建议保持规律的学习习惯"
+            if records_data
+            else "暂无学习记录",
             "time_management": "建议合理安排学习时间",
             "problems": ["需要更多练习"] if avg_score < 60 else [],
             "suggestions": [
                 "1. 做好课前预习和课后复习",
                 "2. 建立错题本，针对性练习",
                 "3. 积极参与课堂互动",
-                "4. 定期回顾已学知识"
+                "4. 定期回顾已学知识",
             ],
             "recommended_resources": [
                 {"name": "基础知识讲解", "type": "文档", "reason": "巩固基础"},
-                {"name": "练习题库", "type": "题库", "reason": "提升解题能力"}
+                {"name": "练习题库", "type": "题库", "reason": "提升解题能力"},
             ],
-            "note": "AI服务未配置，使用基础诊断"
+            "note": "AI服务未配置，使用基础诊断",
         }
         return success(basic_diagnosis)
 
@@ -149,43 +162,50 @@ async def get_student_diagnosis(
 ):
     """获取学生的学习诊断历史"""
     # 获取学生的成绩统计
-    score_query = select(
-        func.avg(Score.score).label("avg_score"),
-        func.count(Score.id).label("total_exams"),
-        Score.course_id
-    ).where(Score.student_id == student_id).group_by(Score.course_id)
-    
+    score_query = (
+        select(
+            func.avg(Score.score).label("avg_score"),
+            func.count(Score.id).label("total_exams"),
+            Score.course_id,
+        )
+        .where(Score.student_id == student_id)
+        .group_by(Score.course_id)
+    )
+
     result = await db.execute(score_query)
     stats = result.all()
-    
+
     course_stats = [
         {
             "course_id": str(s.course_id) if s.course_id else None,
             "avg_score": float(s.avg_score) if s.avg_score else 0,
-            "total_exams": s.total_exams
+            "total_exams": s.total_exams,
         }
         for s in stats
     ]
-    
+
     # 获取学习时长统计
     record_query = select(
         func.sum(LearningRecord.duration).label("total_duration"),
-        func.count(LearningRecord.id).label("total_records")
+        func.count(LearningRecord.id).label("total_records"),
     ).where(LearningRecord.user_id == student_id)
-    
+
     record_result = await db.execute(record_query)
     record_stats = record_result.one()
-    
-    return success({
-        "course_stats": course_stats,
-        "learning_stats": {
-            "total_duration": record_stats.total_duration or 0,
-            "total_records": record_stats.total_records or 0
+
+    return success(
+        {
+            "course_stats": course_stats,
+            "learning_stats": {
+                "total_duration": record_stats.total_duration or 0,
+                "total_records": record_stats.total_records or 0,
+            },
         }
-    })
+    )
 
 
 # ==================== 个性化推荐 ====================
+
 
 @router.get("/recommendations/student/{student_id}", response_model=dict)
 async def get_personalized_recommendations(
@@ -199,13 +219,10 @@ async def get_personalized_recommendations(
     基于学生的学习历史和成绩进行智能推荐
     """
     ai_service = AIService(db)
-    
+
     # 获取学生最近的薄弱科目
     score_query = (
-        select(
-            Score.course_id,
-            func.avg(Score.score).label("avg_score")
-        )
+        select(Score.course_id, func.avg(Score.score).label("avg_score"))
         .where(Score.student_id == student_id)
         .group_by(Score.course_id)
         .order_by(func.avg(Score.score))
@@ -213,18 +230,17 @@ async def get_personalized_recommendations(
     )
     score_result = await db.execute(score_query)
     weak_courses = score_result.all()
-    
+
     weak_course_ids = [
         str(wc.course_id) if wc.course_id else "未知"
         for wc in weak_courses
         if wc.avg_score and wc.avg_score < 70
     ]
-    
+
     # 获取学生的学习偏好
     record_query = (
         select(
-            LearningRecord.resource_type,
-            func.count(LearningRecord.id).label("count")
+            LearningRecord.resource_type, func.count(LearningRecord.id).label("count")
         )
         .where(LearningRecord.user_id == student_id)
         .group_by(LearningRecord.resource_type)
@@ -237,7 +253,7 @@ async def get_personalized_recommendations(
         for p in pref_result.all()
         if p.resource_type
     ]
-    
+
     prompt = f"""
 请为学生推荐学习资源：
 
@@ -257,14 +273,9 @@ async def get_personalized_recommendations(
     }}
 ]
 """
-    
+
     try:
-        result = await ai_service.chat(
-            current_user.id,
-            prompt,
-            None,
-            "deepseek"
-        )
+        result = await ai_service.chat(current_user.id, prompt, None, "deepseek")
         return success(result)
     except Exception:
         # AI服务不可用时返回基础推荐
@@ -274,29 +285,31 @@ async def get_personalized_recommendations(
                 "resource_type": "视频",
                 "difficulty": "基础",
                 "reason": "针对薄弱科目进行巩固",
-                "estimated_time": "30分钟"
+                "estimated_time": "30分钟",
             },
             {
                 "resource_name": "同步练习题库",
                 "resource_type": "练习",
                 "difficulty": "进阶",
                 "reason": "通过练习提升解题能力",
-                "estimated_time": "45分钟"
+                "estimated_time": "45分钟",
             },
             {
                 "resource_name": "难点突破课程",
                 "resource_type": "课程",
                 "difficulty": "提高",
                 "reason": "攻克学习中的难点",
-                "estimated_time": "60分钟"
-            }
+                "estimated_time": "60分钟",
+            },
         ]
-        
-        return success({
-            "recommendations": basic_recommendations[:limit],
-            "weak_courses": weak_course_ids,
-            "note": "AI服务未配置，使用基础推荐"
-        })
+
+        return success(
+            {
+                "recommendations": basic_recommendations[:limit],
+                "weak_courses": weak_course_ids,
+                "note": "AI服务未配置，使用基础推荐",
+            }
+        )
 
 
 @router.get("/recommendations/course/{course_id}", response_model=dict)
@@ -310,16 +323,19 @@ async def get_course_recommendations(
     获取课程相关推荐
     为特定课程推荐相关的学习资源
     """
-    return success({
-        "recommendations": [
-            {"name": f"课程相关练习{i}", "type": "练习", "reason": "巩固所学"}
-            for i in range(1, limit + 1)
-        ],
-        "course_id": str(course_id)
-    })
+    return success(
+        {
+            "recommendations": [
+                {"name": f"课程相关练习{i}", "type": "练习", "reason": "巩固所学"}
+                for i in range(1, limit + 1)
+            ],
+            "course_id": str(course_id),
+        }
+    )
 
 
 # ==================== 能力画像 ====================
+
 
 @router.get("/ability/{student_id}", response_model=dict)
 async def get_ability_profile(
@@ -341,8 +357,8 @@ async def get_ability_profile(
 
 @router.get("/radar/{student_id}", response_model=dict)
 async def get_ability_radar(
-    student_id: UUID,
-    course_id: Optional[UUID] = Query(None),
+    student_id: str,
+    course_id: Optional[str] = Query(None),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -358,6 +374,7 @@ async def get_ability_radar(
 
 
 # ==================== 知识图谱 ====================
+
 
 @router.get("/knowledge-graph/{student_id}", response_model=dict)
 async def get_knowledge_graph(
@@ -379,6 +396,7 @@ async def get_knowledge_graph(
 
 
 # ==================== 综合诊断报告 ====================
+
 
 @router.post("/report", response_model=dict)
 async def generate_diagnosis_report(
