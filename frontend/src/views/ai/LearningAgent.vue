@@ -483,7 +483,7 @@ onUnmounted(() => {
 const startSession = async () => {
   try {
     const session = await learningAgentAPI.startSession({
-      studentId: currentStudentId,
+      studentId: currentStudentId.value,
       subjectId: selectedSubject.value,
       difficulty: 'medium'
     })
@@ -493,7 +493,7 @@ const startSession = async () => {
     // 模拟数据
     currentSession.value = {
       id: 'session-001',
-      studentId: currentStudentId,
+      studentId: currentStudentId.value,
       status: 'active',
       startTime: new Date(),
       messages: [],
@@ -587,7 +587,7 @@ const loadAbilityData = async () => {
   try {
     // 加载雷达图数据
     const radarRes = await getAbilityRadar(currentStudentId.value as string)
-    const radar = (radarRes as any).data?.data || (radarRes as any).data || null
+    const radar = radarRes?.data ?? null
     abilityRadarData.value = radar
     if (radar) {
       performanceAnalysis.strengths = (radar.indicators || [])
@@ -606,15 +606,21 @@ const loadAbilityData = async () => {
       if (profile?.improvement_suggestions?.length) {
         performanceAnalysis.studyRecommendations = profile.improvement_suggestions.slice(0, 5)
       }
-    } catch { /* AI 未配置，使用默认 */ }
+    } catch(e) { /* AI 未配置，使用默认 */ 
+      console.error(e)
+    }
 
     // 渲染雷达图
     nextTick(() => renderRadarChart())
-  } catch { /* API 不可用，使用默认 */ }
+  } catch(e) { /* API 不可用，使用默认 */ 
+    console.error(e)
+  }
 }
 
 // T11：渲染 ECharts 雷达图
 const renderRadarChart = () => {
+  // NEXT DEBUG line should be removed.
+  if (abilityRadarData.value) return
   if (!radarChartRef.value || !abilityRadarData.value) return
   if (!radarChart) radarChart = echarts.init(radarChartRef.value)
   const indicators = abilityRadarData.value.indicators || []

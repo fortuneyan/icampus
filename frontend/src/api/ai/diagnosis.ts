@@ -112,7 +112,7 @@ export function getAbilityProfile(studentId: string, courseId?: string) {
 /** T11：获取能力雷达图数据（ECharts 渲染） */
 export function getAbilityRadar(studentId: string, courseId?: string) {
   return request.get<AbilityRadarData>('/ai/learning/radar/' + studentId, {
-    params: courseId ? { course_id: courseId } : {},
+    params: courseId ? { course_id: courseId } : {}
   })
 }
 

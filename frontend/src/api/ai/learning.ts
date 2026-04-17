@@ -352,15 +352,15 @@ export const learningAgentAPI = {
   /** 获取学生能力画像（能力维度分析） */
   getAbilityProfile: (studentId: string, courseId?: string) => {
     return request.get<AbilityProfile>('/ai/learning/ability/' + studentId, {
-      params: courseId ? { course_id: courseId } : {},
-    })
+      params: courseId ? { course_id: courseId } : {}
+    }).then(r => r.data)
   },
 
   /** 获取能力雷达图数据（ECharts 渲染用） */
   getAbilityRadar: (studentId: string, courseId?: string) => {
     return request.get<AbilityRadarData>('/ai/learning/radar/' + studentId, {
       params: courseId ? { course_id: courseId } : {},
-    })
+    }).then(r => r.data)
   },
 
   /** 获取知识图谱（知识点掌握度 + 前置依赖） */

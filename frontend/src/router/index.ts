@@ -225,6 +225,14 @@ const routes: RouteRecordRaw[] = [
         meta: { title: '学习助手', module: 'ai', aiFeature: true },
       },
       {
+        path: '/ai/zen-tutor',
+        name: 'ZenAITutor',
+        component: () => { // 跳转到 http://localhost:5183/
+          window.open('http://localhost:5183/')
+        },
+        meta: { title: 'AI家教', module: 'ai', aiFeature: true },
+      },
+      {
         path: '/ai/learning-path',
         name: 'LearningPath',
         component: () => import('@/views/ai/LearningPath.vue'),

@@ -87,7 +87,11 @@
           <el-menu-item index="/ai/learning-agent">
             <el-icon><User /></el-icon>
             学习助手
-            <el-tag size="small" type="primary" effect="dark" class="menu-tag">NEW</el-tag>
+          </el-menu-item>
+          <el-menu-item index="/ai/zen-tutor">
+            <el-icon><Connection /></el-icon>
+            AI私教
+            <el-tag size="small" type="warning" effect="dark" class="menu-tag">AI</el-tag>
           </el-menu-item>
           <el-menu-item index="/ai/learning-path">
             <el-icon><Guide /></el-icon>
