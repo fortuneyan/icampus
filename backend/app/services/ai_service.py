@@ -294,8 +294,8 @@ class AIService:
 
     async def get_ability_profile(
         self,
-        student_id: UUID,
-        course_id: Optional[UUID] = None,
+        student_id: str,
+        course_id: Optional[str] = None,
         score_history: Optional[List[dict]] = None,
     ) -> AbilityProfile:
         """
@@ -306,12 +306,33 @@ class AIService:
         """
         from app.models.score import Score
         from app.models.learning_record import LearningRecord
+        from app.models.student import Student
         from sqlalchemy import select, desc, func
+        from uuid import UUID
+
+        # 解析学生ID
+        try:
+            student_uuid = UUID(student_id)
+        except ValueError:
+            query = select(Student).where(Student.student_no == student_id)
+            result = await self.db.execute(query)
+            student = result.scalar_one_or_none()
+            if not student:
+                return AbilityProfile(
+                    student_id=student_id,
+                    overall_score=0,
+                    dimensions=[],
+                    strengths=[],
+                    weaknesses=[],
+                    improvement_suggestions=[],
+                    generated_at="",
+                )
+            student_uuid = student.id
 
         # 获取成绩历史（最近 20 条）
         query = (
             select(Score)
-            .where(Score.student_id == student_id)
+            .where(Score.student_id == student_uuid)
             .order_by(desc(Score.recorded_at))
             .limit(20)
         )
@@ -461,15 +482,17 @@ class AIService:
         try:
             student_uuid = UUID(student_id)
         except ValueError:
-            query = select(Student).where(Student.student_number == student_id)
+            query = select(Student).where(Student.student_no == student_id)
             result = await self.db.execute(query)
             student = result.scalar_one_or_none()
             if not student:
+                """错误数据处理"""
                 return AbilityRadarData(
-                    dimensions=[],
-                    student_values=[],
-                    class_avg_values=[],
-                    max_value=100,
+                    student_id=student_id,
+                    avg_score=0,
+                    indicators=[],
+                    highest_dimension="",
+                    lowest_dimension="",
                 )
             student_uuid = student.id
 
@@ -581,6 +604,7 @@ class AIService:
             course_name or f"课程{str(course_id)[:8] if course_id else '未知'}"
         )
 
+        # MOCK DATA
         # 知识节点定义（示例层次结构，可扩展）
         node_definitions = [
             # (node_id, name, parent_id, difficulty, importance, prerequisites, tags)

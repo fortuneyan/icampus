@@ -339,8 +339,8 @@ async def get_course_recommendations(
 
 @router.get("/ability/{student_id}", response_model=dict)
 async def get_ability_profile(
-    student_id: UUID,
-    course_id: Optional[UUID] = Query(None),
+    student_id: str,
+    course_id: Optional[str] = Query(None),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
