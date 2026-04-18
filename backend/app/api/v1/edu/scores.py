@@ -53,7 +53,7 @@ async def get_scores(
             query = query.where(Score.course_id == uid)
 
     if exam_type:
-        query = query.where(Score.exam_type == exam_type)
+        query = query.where(Score.score_type == exam_type)
 
     if semester:
         query = query.where(Score.semester == semester)
@@ -71,7 +71,7 @@ async def get_scores(
             "id": str(s.id),
             "student_id": str(s.student_id),
             "course_id": str(s.course_id),
-            "exam_type": s.exam_type,
+            "exam_type": s.score_type,
             "semester": s.semester,
             "score": float(s.score) if s.score else None,
             "grade_letter": s.grade_letter,
@@ -141,7 +141,7 @@ async def get_score(
             "id": str(score.id),
             "student_id": str(score.student_id),
             "course_id": str(score.course_id),
-            "exam_type": score.exam_type,
+            "exam_type": score.score_type,
             "semester": score.semester,
             "score": float(score.score) if score.score else None,
             "grade_letter": score.grade_letter,

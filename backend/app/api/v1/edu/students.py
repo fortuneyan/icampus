@@ -71,12 +71,13 @@ async def get_students(
 @router.get("/options", response_model=dict)
 async def get_student_options(
     grade_id: Optional[UUID] = Query(None),
+    class_id: Optional[UUID] = Query(None),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
     """获取学生下拉选项"""
     student_service = StudentService(db)
-    options = await student_service.get_student_options(grade_id)
+    options = await student_service.get_student_options(grade_id, class_id)
     return success(options)
 
 

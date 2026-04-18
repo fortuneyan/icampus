@@ -222,7 +222,34 @@ async def create_schedule(
     current_user: User = Depends(get_current_user),
 ):
     """创建排课"""
-    schedule = Schedule(**data)
+    week_value = data.get("week_range") if data.get("week_range") else data.get("week")
+    if week_value is not None:
+        week_value = str(week_value)
+    
+    weekday_value = data.get("weekday") if data.get("weekday") else data.get("day_of_week")
+    if weekday_value:
+        weekday_value = int(weekday_value)
+    
+    period_start = data.get("period_start") if data.get("period_start") else data.get("period")
+    if period_start:
+        period_start = int(period_start)
+    
+    period_end = data.get("period_end") if data.get("period_end") else data.get("period")
+    if period_end:
+        period_end = int(period_end)
+    
+    schedule_data = {
+        "class_id": data.get("class_id"),
+        "course_id": data.get("course_id"),
+        "teacher_id": data.get("teacher_id"),
+        "room_id": data.get("room_id"),
+        "weekday": weekday_value,
+        "period_start": period_start,
+        "period_end": period_end,
+        "semester": data.get("semester"),
+        "week_range": week_value,
+    }
+    schedule = Schedule(**schedule_data)
     db.add(schedule)
     await db.commit()
     await db.refresh(schedule)
@@ -243,8 +270,31 @@ async def update_schedule(
     if not schedule:
         return success(message="排课不存在")
 
-    for key, value in data.items():
-        setattr(schedule, key, value)
+    if "class_id" in data:
+        schedule.class_id = data["class_id"]
+    if "course_id" in data:
+        schedule.course_id = data["course_id"]
+    if "teacher_id" in data:
+        schedule.teacher_id = data["teacher_id"]
+    if "room_id" in data:
+        schedule.room_id = data["room_id"]
+    if "weekday" in data:
+        schedule.weekday = data["weekday"]
+    if "day_of_week" in data:
+        schedule.weekday = data["day_of_week"]
+    if "period_start" in data:
+        schedule.period_start = data["period_start"]
+    if "period" in data:
+        schedule.period_start = data["period"]
+        schedule.period_end = data["period"]
+    if "period_end" in data:
+        schedule.period_end = data["period_end"]
+    if "semester" in data:
+        schedule.semester = data["semester"]
+    if "week_range" in data:
+        schedule.week_range = data["week_range"]
+    if "week" in data:
+        schedule.week_range = data["week"]
 
     await db.commit()
     return success({"id": str(schedule.id)}, "排课更新成功")

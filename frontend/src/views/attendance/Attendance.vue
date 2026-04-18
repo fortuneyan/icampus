@@ -103,7 +103,7 @@ const leaveRules = {
 }
 
 const getTypeName = (type: string) => ({ normal: '出勤', late: '迟到', leave: '请假', absent: '缺勤' }[type] || type)
-const getTypeTag = (type: string) => ({ normal: 'success', late: 'warning', leave: 'info', absent: 'danger' }[type] || '')
+const getTypeTag = (type: string) => ({ normal: 'success', late: 'warning', leave: 'info', absent: 'danger' }[type] || 'info')
 
 const fetchData = async () => {
   loading.value = true

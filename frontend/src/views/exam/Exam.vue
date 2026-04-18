@@ -130,7 +130,7 @@ const formRules = {
 
 const getTypeName = (type: string) => ({ midterm: '期中', final: '期末', monthly: '月考', mock: '模拟' }[type] || type)
 const getStatusName = (status: string) => ({ draft: '草稿', published: '已发布', ongoing: '进行中', completed: '已结束' }[status] || status)
-const getStatusType = (status: string) => ({ draft: 'info', published: 'success', ongoing: 'warning', completed: '' }[status] || '')
+const getStatusType = (status: string) => ({ draft: 'info', published: 'success', ongoing: 'warning', completed: 'info' }[status] || 'info')
 
 const fetchData = async () => {
   loading.value = true

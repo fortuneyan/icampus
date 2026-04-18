@@ -6,6 +6,11 @@
           <el-form-item label="学生姓名">
             <el-input v-model="searchForm.student_name" placeholder="请输入" clearable />
           </el-form-item>
+          <el-form-item label="年级">
+            <el-select v-model="searchForm.grade_id" placeholder="请选择" clearable @change="handleGradeChange">
+              <el-option v-for="g in gradeOptions" :key="g.value" :label="g.label" :value="g.value" />
+            </el-select>
+          </el-form-item>
           <el-form-item label="课程">
             <el-select v-model="searchForm.course_id" placeholder="请选择" clearable>
               <el-option v-for="c in courseOptions" :key="c.value" :label="c.label" :value="c.value" />
@@ -78,8 +83,18 @@
 
     <el-dialog v-model="dialogVisible" :title="dialogTitle" width="600px">
       <el-form ref="formRef" :model="formData" :rules="formRules" label-width="100px">
+        <el-form-item label="年级" prop="grade_id">
+          <el-select v-model="formData.grade_id" placeholder="请选择" @change="handleFormGradeChange">
+            <el-option v-for="g in gradeOptions" :key="g.value" :label="g.label" :value="g.value" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="班级" prop="class_id">
+          <el-select v-model="formData.class_id" placeholder="请先选择年级" @change="handleFormClassChange">
+            <el-option v-for="c in classOptions" :key="c.value" :label="c.label" :value="c.value" />
+          </el-select>
+        </el-form-item>
         <el-form-item label="学生" prop="student_id">
-          <el-select v-model="formData.student_id" filterable placeholder="请选择">
+          <el-select v-model="formData.student_id" filterable placeholder="请先选择班级">
             <el-option v-for="s in studentOptions" :key="s.value" :label="s.label" :value="s.value" />
           </el-select>
         </el-form-item>
@@ -128,21 +143,25 @@ import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import type { FormInstance } from 'element-plus'
 import { getScoreList, createScore, updateScore, deleteScore } from '@/api/edu/score'
-import { getStudentOptions } from '@/api/edu/student'
+import { getStudentOptions, getStudentDetail } from '@/api/edu/student'
+import { getClassOptions, getClassDetail } from '@/api/edu/class'
 import { getCourseOptions } from '@/api/edu/course'
+import { getGradeOptions } from '@/api/edu/grade'
 
 const loading = ref(false)
 const tableData = ref([])
-const searchForm = reactive({ student_name: '', course_id: '', exam_type: '' })
+const searchForm = reactive({ student_name: '', grade_id: '', course_id: '', exam_type: '' })
 const pagination = reactive({ page: 1, pageSize: 20, total: 0 })
 
 const studentOptions = ref<any[]>([])
 const courseOptions = ref<any[]>([])
+const gradeOptions = ref<any[]>([])
+const classOptions = ref<any[]>([])
 
 const dialogVisible = ref(false)
 const dialogTitle = ref('')
 const formRef = ref<FormInstance>()
-const formData = reactive<any>({ id: '', student_id: '', course_id: '', score: 0, full_score: 100, exam_type: 'midterm', exam_date: '', semester: '', rank: null, comment: '' })
+const formData = reactive<any>({ id: '', grade_id: '', class_id: '', student_id: '', course_id: '', score: 0, full_score: 100, exam_type: 'midterm', exam_date: '', semester: '', rank: null, comment: '' })
 
 const formRules = {
   student_id: [{ required: true, message: '请选择学生', trigger: 'change' }],
@@ -160,18 +179,50 @@ const fetchData = async () => {
   finally { loading.value = false }
 }
 
-const fetchStudents = async () => {
+const fetchCourses = async (grade_id?: string) => {
   try {
-    const res = await getStudentOptions()
+    const res = await getCourseOptions(grade_id)
+    courseOptions.value = res.data || []
+  } catch (e) { console.error(e) }
+}
+
+const fetchGrades = async () => {
+  try {
+    const res = await getGradeOptions()
+    gradeOptions.value = res.data || []
+  } catch (e) { console.error(e) }
+}
+
+const fetchClasses = async (grade_id?: string) => {
+  try {
+    const res = await getClassOptions(grade_id)
+    classOptions.value = res.data || []
+  } catch (e) { console.error(e) }
+}
+
+const fetchStudentsByClass = async (class_id?: string) => {
+  try {
+    const res = await getStudentOptions(undefined, class_id)
     studentOptions.value = res.data || []
   } catch (e) { console.error(e) }
 }
 
-const fetchCourses = async () => {
-  try {
-    const res = await getCourseOptions()
-    courseOptions.value = res.data || []
-  } catch (e) { console.error(e) }
+const handleGradeChange = () => {
+  searchForm.course_id = ''
+  fetchCourses(searchForm.grade_id)
+}
+
+const handleFormGradeChange = () => {
+  formData.class_id = ''
+  formData.student_id = ''
+  formData.course_id = ''
+  fetchClasses(formData.grade_id)
+  fetchCourses(formData.grade_id)
+}
+
+const handleFormClassChange = () => {
+  formData.student_id = ''
+  fetchStudentsByClass(formData.class_id)
 }
 
 const getStudentName = (id: string) => studentOptions.value.find(s => s.value === id)?.label || ''
@@ -179,26 +230,60 @@ const getCourseName = (id: string) => courseOptions.value.find(c => c.value === 
 const getExamTypeName = (type: string) => ({ midterm: '期中', final: '期末', monthly: '月考', quiz: '测验' }[type] || type)
 
 const handleSearch = () => { pagination.page = 1; fetchData() }
-const handleReset = () => { searchForm.student_name = ''; searchForm.course_id = ''; searchForm.exam_type = ''; handleSearch() }
+const handleReset = () => { searchForm.student_name = ''; searchForm.grade_id = ''; searchForm.course_id = ''; searchForm.exam_type = ''; handleSearch() }
 
 const handleAdd = () => {
-  Object.assign(formData, { id: '', student_id: '', course_id: '', score: 0, full_score: 100, exam_type: 'midterm', exam_date: '', semester: '', rank: null, comment: '' })
+  Object.assign(formData, { id: '', grade_id: '', class_id: '', student_id: '', course_id: '', score: 0, full_score: 100, exam_type: 'midterm', exam_date: '', semester: '', rank: null, comment: '' })
+  classOptions.value = []
+  studentOptions.value = []
+  courseOptions.value = []
   dialogTitle.value = '录入成绩'
   dialogVisible.value = true
 }
 
-const handleEdit = (row: any) => {
+const handleEdit = async (row: any) => {
   Object.assign(formData, { ...row })
+  if (row.student_id) {
+    await loadEditOptions(row.student_id)
+  }
   dialogTitle.value = '编辑成绩'
   dialogVisible.value = true
+}
+
+const loadEditOptions = async (studentId: string) => {
+  try {
+    const res = await getStudentDetail(studentId)
+    const gradeId = res.data?.data?.grade_id
+    const classId = res.data?.data?.class_id
+    if (gradeId) {
+      formData.grade_id = gradeId
+      await Promise.all([
+        fetchClasses(gradeId),
+        fetchCourses(gradeId)
+      ])
+    }
+    if (classId) {
+      formData.class_id = classId
+      await fetchStudentsByClass(classId)
+    }
+  } catch (e) { console.error(e) }
 }
 
 const handleSubmit = async () => {
   if (!formRef.value) return
   await formRef.value.validate()
+  const submitData = {
+    student_id: formData.student_id,
+    course_id: formData.course_id,
+    score: formData.score,
+    score_type: formData.exam_type,
+    semester: formData.semester,
+    rank: formData.rank,
+    remarks: formData.comment,
+  }
   try {
-    if (formData.id) { await updateScore(formData.id, formData); ElMessage.success('更新成功') }
-    else { await createScore(formData); ElMessage.success('创建成功') }
+    if (formData.id) { await updateScore(formData.id, submitData); ElMessage.success('更新成功') }
+    else { await createScore(submitData); ElMessage.success('创建成功') }
     dialogVisible.value = false
     fetchData()
   } catch (e: any) { ElMessage.error(e.message || '操作失败') }
@@ -213,7 +298,7 @@ const handleDelete = async (row: any) => {
   } catch (e: any) { if (e !== 'cancel') ElMessage.error(e.message || '删除失败') }
 }
 
-onMounted(() => { fetchStudents(); fetchCourses(); fetchData() })
+onMounted(() => { fetchGrades(); fetchCourses(); fetchData() })
 </script>
 
 <style scoped lang="scss">

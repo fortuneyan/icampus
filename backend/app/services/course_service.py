@@ -44,4 +44,4 @@ class CourseService(BaseService[Course]):
             filters.append(Course.grade_id == grade_id)
 
         courses = await self.get_all(filters)
-        return [{"id": str(c.id), "label": c.name, "value": str(c.id)} for c in courses]
+        return [{"id": str(c.id), "label": f"{c.code} - {c.name}", "value": str(c.id)} for c in courses]

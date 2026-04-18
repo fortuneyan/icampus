@@ -119,8 +119,8 @@ const formRules = {
 }
 
 const getRoomTypeTag = (type: string) => {
-  const map: Record<string, string> = { '普通教室': '', '实验室': 'warning', '机房': 'info', '多媒体': 'success' }
-  return map[type] || ''
+  const map: Record<string, string> = { '普通教室': 'primary', '实验室': 'warning', '机房': 'info', '多媒体': 'success' }
+  return map[type] || 'info'
 }
 
 const fetchData = async () => {

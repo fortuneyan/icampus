@@ -961,7 +961,7 @@ const submitPractice = async () => {
   border-radius: 8px;
   overflow: hidden;
   margin-bottom: 16px;
-  min-height: 400px;
+  min-height: 500px;
 }
 
 .chart-container {
@@ -977,7 +977,7 @@ const submitPractice = async () => {
 
 .path-svg {
   width: 100%;
-  height: 100%;
+  height: calc(100vh - 300px);
   min-width: 900px;
   min-height: 500px;
 }

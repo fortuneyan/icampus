@@ -90,11 +90,13 @@ class StudentService(BaseService[Student]):
 
         return await self.update(student_id, {"class_id": class_id})
 
-    async def get_student_options(self, grade_id: Optional[UUID] = None) -> List[dict]:
+    async def get_student_options(self, grade_id: Optional[UUID] = None, class_id: Optional[UUID] = None) -> List[dict]:
         """获取学生下拉选项"""
         filters = [Student.status == "active", Student.deleted_at.is_(None)]
         if grade_id:
             filters.append(Student.grade_id == grade_id)
+        if class_id:
+            filters.append(Student.class_id == class_id)
 
         students = await self.get_all(filters)
         return [

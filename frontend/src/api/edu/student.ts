@@ -27,8 +27,8 @@ export function getStudentList(params: StudentParams) {
   return request.get('/edu/students', { params })
 }
 
-export function getStudentOptions(grade_id?: string) {
-  return request.get('/edu/students/options', { params: { grade_id } })
+export function getStudentOptions(grade_id?: string, class_id?: string) {
+  return request.get('/edu/students/options', { params: { grade_id, class_id } })
 }
 
 export function getStudentDetail(id: string) {

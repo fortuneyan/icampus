@@ -177,7 +177,7 @@ const formRules = {
 
 const getTypeText = (v: string) => ({ video: '视频', document: '文档', courseware: '课件', homework: '作业' }[v] || v)
 const getActionText = (v: string) => ({ view: '观看', download: '下载', favorite: '收藏', complete: '完成' }[v] || v)
-const getActionTypeTag = (v: string) => ({ view: 'primary', download: 'success', favorite: 'warning', complete: 'info' }[v] || '')
+const getActionTypeTag = (v: string) => ({ view: 'primary', download: 'success', favorite: 'warning', complete: 'info' }[v] || 'info')
 
 const fetchData = async () => {
   loading.value = true

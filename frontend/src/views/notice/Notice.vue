@@ -136,9 +136,9 @@ const formRules = {
 }
 
 const getTypeName = (type: string) => ({ system: '系统', class: '班级', personal: '个人' }[type] || type)
-const getPriorityType = (priority: number) => ({ 0: '', 1: 'warning', 2: 'danger' }[priority] || '')
+const getPriorityType = (priority: number) => ({ 0: 'info', 1: 'warning', 2: 'danger' }[priority] || 'info')
 const getStatusName = (status: string) => ({ draft: '草稿', published: '已发布', archived: '已归档' }[status] || status)
-const getStatusType = (status: string) => ({ draft: 'info', published: 'success', archived: 'warning' }[status] || '')
+const getStatusType = (status: string) => ({ draft: 'info', published: 'success', archived: 'warning' }[status] || 'info')
 
 const fetchData = async () => {
   loading.value = true

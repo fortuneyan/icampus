@@ -35,18 +35,22 @@
             {{ getTeacherName(row.teacher_id) }}
           </template>
         </el-table-column>
-        <el-table-column prop="day_of_week" label="星期" width="80">
+        <el-table-column prop="weekday" label="星期" width="80">
           <template #default="{ row }">
-            {{ ['周一', '周二', '周三', '周四', '周五', '周六', '周日'][row.day_of_week - 1] }}
+            {{ ['周一', '周二', '周三', '周四', '周五', '周六', '周日'][row.weekday - 1] }}
           </template>
         </el-table-column>
-        <el-table-column prop="period" label="节次" width="60" />
+        <el-table-column label="节次" width="80">
+          <template #default="{ row }">
+            {{ row.period_start }}-{{ row.period_end }}
+          </template>
+        </el-table-column>
         <el-table-column prop="room_id" label="教室" width="100">
           <template #default="{ row }">
             {{ getRoomName(row.room_id) }}
           </template>
         </el-table-column>
-        <el-table-column prop="week" label="周次" width="80" />
+        <el-table-column prop="week_range" label="周次" width="80" />
         <el-table-column prop="semester" label="学期" width="150" />
         <el-table-column label="操作" width="120" fixed="right">
           <template #default="{ row }">
@@ -71,8 +75,13 @@
 
     <el-dialog v-model="dialogVisible" :title="dialogTitle" width="600px">
       <el-form ref="formRef" :model="formData" :rules="formRules" label-width="100px">
+        <el-form-item label="年级" prop="grade_id">
+          <el-select v-model="formData.grade_id" placeholder="请选择" @change="handleFormGradeChange">
+            <el-option v-for="g in gradeOptions" :key="g.value" :label="g.label" :value="g.value" />
+          </el-select>
+        </el-form-item>
         <el-form-item label="班级" prop="class_id">
-          <el-select v-model="formData.class_id" placeholder="请选择">
+          <el-select v-model="formData.class_id" placeholder="请先选择年级">
             <el-option v-for="c in classOptions" :key="c.value" :label="c.label" :value="c.value" />
           </el-select>
         </el-form-item>
@@ -125,9 +134,9 @@ import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import type { FormInstance } from 'element-plus'
 import { getScheduleList, createSchedule, updateSchedule, deleteSchedule } from '@/api/edu/schedule'
-import { getClassOptions } from '@/api/edu/class'
+import { getClassOptions, getClassDetail } from '@/api/edu/class'
 import { getCourseOptions } from '@/api/edu/course'
-import { getTeacherOptions } from '@/api/edu/grade'
+import { getTeacherOptions, getGradeOptions } from '@/api/edu/grade'
 import { getClassroomOptions } from '@/api/edu/classroom'
 
 const loading = ref(false)
@@ -139,11 +148,12 @@ const classOptions = ref<any[]>([])
 const courseOptions = ref<any[]>([])
 const teacherOptions = ref<any[]>([])
 const roomOptions = ref<any[]>([])
+const gradeOptions = ref<any[]>([])
 
 const dialogVisible = ref(false)
 const dialogTitle = ref('')
 const formRef = ref<FormInstance>()
-const formData = reactive<any>({ id: '', class_id: '', course_id: '', teacher_id: '', day_of_week: 1, period: 1, room_id: '', week: 1, semester: '' })
+const formData = reactive<any>({ id: '', grade_id: '', class_id: '', course_id: '', teacher_id: '', day_of_week: 1, period: 1, room_id: '', week: 1, semester: '' })
 
 const formRules = {
   class_id: [{ required: true, message: '请选择班级', trigger: 'change' }],
@@ -163,18 +173,32 @@ const fetchData = async () => {
   finally { loading.value = false }
 }
 
-const fetchClasses = async () => {
+const fetchClasses = async (grade_id?: string) => {
   try {
-    const res = await getClassOptions()
+    const res = await getClassOptions(grade_id)
     classOptions.value = res.data || []
   } catch (e) { console.error(e) }
 }
 
-const fetchCourses = async () => {
+const fetchCourses = async (grade_id?: string) => {
   try {
-    const res = await getCourseOptions()
+    const res = await getCourseOptions(grade_id)
     courseOptions.value = res.data || []
   } catch (e) { console.error(e) }
+}
+
+const fetchGrades = async () => {
+  try {
+    const res = await getGradeOptions()
+    gradeOptions.value = res.data || []
+  } catch (e) { console.error(e) }
+}
+
+const handleFormGradeChange = () => {
+  formData.class_id = ''
+  formData.course_id = ''
+  fetchClasses(formData.grade_id)
+  fetchCourses(formData.grade_id)
 }
 
 const fetchTeachers = async () => {
@@ -201,23 +225,49 @@ const handleSearch = () => { pagination.page = 1; fetchData() }
 const handleReset = () => { searchForm.class_id = ''; searchForm.week = 1; handleSearch() }
 
 const handleAdd = () => {
-  Object.assign(formData, { id: '', class_id: '', course_id: '', teacher_id: '', day_of_week: 1, period: 1, room_id: '', week: 1, semester: '' })
+  Object.assign(formData, { id: '', grade_id: '', class_id: '', course_id: '', teacher_id: '', day_of_week: 1, period: 1, room_id: '', week: 1, semester: '' })
   dialogTitle.value = '添加课表'
   dialogVisible.value = true
 }
 
 const handleEdit = (row: any) => {
   Object.assign(formData, { ...row })
+  loadEditOptions(row.class_id)
   dialogTitle.value = '编辑课表'
   dialogVisible.value = true
+}
+
+const loadEditOptions = async (classId: string) => {
+  try {
+    const res = await getClassDetail(classId)
+    const gradeId = res.data?.data?.grade_id
+    if (gradeId) {
+      formData.grade_id = gradeId
+      await Promise.all([
+        fetchClasses(gradeId),
+        fetchCourses(gradeId)
+      ])
+    }
+  } catch (e) { console.error(e) }
 }
 
 const handleSubmit = async () => {
   if (!formRef.value) return
   await formRef.value.validate()
+  const submitData = {
+    class_id: formData.class_id,
+    course_id: formData.course_id,
+    teacher_id: formData.teacher_id,
+    weekday: formData.day_of_week,
+    period_start: formData.period,
+    period_end: formData.period,
+    room_id: formData.room_id,
+    week_range: formData.week,
+    semester: formData.semester,
+  }
   try {
-    if (formData.id) { await updateSchedule(formData.id, formData); ElMessage.success('更新成功') }
-    else { await createSchedule(formData); ElMessage.success('创建成功') }
+    if (formData.id) { await updateSchedule(formData.id, submitData); ElMessage.success('更新成功') }
+    else { await createSchedule(submitData); ElMessage.success('创建成功') }
     dialogVisible.value = false
     fetchData()
   } catch (e: any) { ElMessage.error(e.message || '操作失败') }
@@ -232,7 +282,7 @@ const handleDelete = async (row: any) => {
   } catch (e: any) { if (e !== 'cancel') ElMessage.error(e.message || '删除失败') }
 }
 
-onMounted(() => { fetchClasses(); fetchCourses(); fetchTeachers(); fetchRooms(); fetchData() })
+onMounted(() => { fetchGrades(); fetchClasses(); fetchCourses(); fetchTeachers(); fetchRooms(); fetchData() })
 </script>
 
 <style scoped lang="scss">
