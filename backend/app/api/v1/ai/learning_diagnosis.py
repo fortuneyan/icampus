@@ -58,7 +58,7 @@ async def diagnose_learning(
         {
             "course": s.course_id,
             "score": float(s.score) if s.score else 0,
-            "exam_type": s.score_type,
+            "exam_type": s.exam_type,
         }
         for s in scores
     ]

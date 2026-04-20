@@ -53,7 +53,7 @@ async def get_scores(
             query = query.where(Score.course_id == uid)
 
     if exam_type:
-        query = query.where(Score.score_type == exam_type)
+        query = query.where(Score.exam_type == exam_type)
 
     if semester:
         query = query.where(Score.semester == semester)
@@ -71,11 +71,13 @@ async def get_scores(
             "id": str(s.id),
             "student_id": str(s.student_id),
             "course_id": str(s.course_id),
-            "exam_type": s.score_type,
+            "exam_type": s.exam_type,
             "semester": s.semester,
             "score": float(s.score) if s.score else None,
+            "full_score": float(s.full_score) if s.full_score else 100,
             "grade_letter": s.grade_letter,
             "rank": s.rank,
+            "exam_date": s.exam_date.strftime("%Y-%m-%d") if s.exam_date else None,
             "remarks": s.remarks,
         }
         for s in scores
@@ -141,11 +143,13 @@ async def get_score(
             "id": str(score.id),
             "student_id": str(score.student_id),
             "course_id": str(score.course_id),
-            "exam_type": score.score_type,
+            "exam_type": score.exam_type,
             "semester": score.semester,
             "score": float(score.score) if score.score else None,
+            "full_score": float(score.full_score) if score.full_score else 100,
             "grade_letter": score.grade_letter,
             "rank": score.rank,
+            "exam_date": score.exam_date.strftime("%Y-%m-%d") if score.exam_date else None,
             "remarks": score.remarks,
         }
     )
@@ -158,7 +162,19 @@ async def create_score(
     current_user: User = Depends(get_current_user),
 ):
     """创建成绩"""
-    score = Score(**data)
+    score_data = {
+        "student_id": data.get("student_id"),
+        "course_id": data.get("course_id"),
+        "semester": data.get("semester"),
+        "exam_type": data.get("exam_type"),
+        "score": data.get("score"),
+        "full_score": data.get("full_score") or 100,
+        "grade_letter": data.get("grade_letter"),
+        "rank": data.get("rank"),
+        "exam_date": data.get("exam_date"),
+        "remarks": data.get("remarks") or data.get("comment"),
+    }
+    score = Score(**score_data)
     db.add(score)
     await db.commit()
     await db.refresh(score)
@@ -179,8 +195,28 @@ async def update_score(
     if not score:
         return success(message="成绩不存在")
 
-    for key, value in data.items():
-        setattr(score, key, value)
+    if "student_id" in data:
+        score.student_id = data["student_id"]
+    if "course_id" in data:
+        score.course_id = data["course_id"]
+    if "semester" in data:
+        score.semester = data["semester"]
+    if "exam_type" in data:
+        score.exam_type = data["exam_type"]
+    if "score" in data:
+        score.score = data["score"]
+    if "full_score" in data:
+        score.full_score = data["full_score"]
+    if "grade_letter" in data:
+        score.grade_letter = data["grade_letter"]
+    if "rank" in data:
+        score.rank = data["rank"]
+    if "exam_date" in data:
+        score.exam_date = data["exam_date"]
+    if "remarks" in data:
+        score.remarks = data["remarks"]
+    if "comment" in data:
+        score.remarks = data["comment"]
 
     await db.commit()
     return success({"id": str(score.id)}, "成绩更新成功")

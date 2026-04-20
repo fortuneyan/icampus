@@ -12,7 +12,7 @@ export interface ScheduleForm {
   week_range?: string
 }
 
-export function getScheduleList(params?: { class_id?: string; teacher_id?: string; semester?: string; page?: number; page_size?: number }) {
+export function getScheduleList(params?: { class_id?: string; teacher_id?: string; course_id?: string; weekday?: number; week?: number; semester?: string; page?: number; page_size?: number }) {
   return request.get('/edu/schedules', { params })
 }
 

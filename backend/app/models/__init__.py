@@ -18,6 +18,10 @@ from app.models.resource_favorite import ResourceFavorite
 from app.models.lesson_plan import LessonPlan
 from app.models.research import ResearchProject
 from app.models.message_subscription import MessageSubscription
+from app.models.notification import Notification
+from app.models.notification_read import NotificationRead
+from app.models.leave import LeaveRequest, LeaveQuota
+from app.models.recruitment import RecruitmentPlan, Applicant, ApplicantFollowUp
 from app.models.region import Region
 from app.models.encryption_key import EncryptionKey
 from app.models.recommendation import Recommendation

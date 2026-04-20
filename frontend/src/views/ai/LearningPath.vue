@@ -32,9 +32,9 @@
     <!-- 视图切换 -->
     <div class="view-toggle">
       <el-radio-group v-model="viewMode" size="small">
-        <el-radio-button label="graph">图谱视图</el-radio-button>
-        <el-radio-button label="list">列表视图</el-radio-button>
-        <el-radio-button label="stats">统计视图</el-radio-button>
+        <el-radio-button value="graph">图谱视图</el-radio-button>
+        <el-radio-button value="list">列表视图</el-radio-button>
+        <el-radio-button value="stats">统计视图</el-radio-button>
       </el-radio-group>
     </div>
 
@@ -214,7 +214,7 @@
           <h5>题目 {{ idx + 1 }}</h5>
           <p>{{ question.text }}</p>
           <el-radio-group v-model="question.answer">
-            <el-radio v-for="(opt, oIdx) in question.options" :key="oIdx" :label="oIdx">{{ opt }}</el-radio>
+            <el-radio v-for="(opt, oIdx) in question.options" :key="oIdx" :value="oIdx">{{ opt }}</el-radio>
           </el-radio-group>
         </div>
       </div>
@@ -961,13 +961,15 @@ const submitPractice = async () => {
   border-radius: 8px;
   overflow: hidden;
   margin-bottom: 16px;
-  min-height: 500px;
+  min-height: 300px;
+  max-height: 400px;
 }
 
 .chart-container {
   width: 100%;
   height: 100%;
-  min-height: 400px;
+  min-height: 300px;
+  max-height: 400px;
 }
 
 .path-container {
@@ -977,9 +979,10 @@ const submitPractice = async () => {
 
 .path-svg {
   width: 100%;
-  height: calc(100vh - 300px);
+  height: 100%;
   min-width: 900px;
-  min-height: 500px;
+  min-height: 300px;
+  max-height: 400px;
 }
 
 // 列表视图样式

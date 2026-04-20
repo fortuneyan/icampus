@@ -13,7 +13,7 @@ class ScoreCreate(BaseModel):
     student_id: UUID
     course_id: UUID
     semester: str = Field(..., max_length=20)
-    score_type: str = Field(..., max_length=20)
+    exam_type: str = Field(..., max_length=20)
     score: Optional[float] = Field(None, ge=0, le=100)
     grade_letter: Optional[str] = Field(None, max_length=5)
     remarks: Optional[str] = None
@@ -36,7 +36,7 @@ class ScoreResponse(BaseModel):
     student_id: UUID
     course_id: UUID
     semester: Optional[str] = None
-    score_type: Optional[str] = None
+    exam_type: Optional[str] = None
     score: Optional[float] = None
     grade_letter: Optional[str] = None
     rank: Optional[int] = None

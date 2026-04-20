@@ -154,7 +154,9 @@
 
           <!-- 学习路径 -->
           <el-tab-pane label="🛤️ 学习路径" name="path">
-            <LearningPath :subject-id="selectedSubject" :student-id="currentStudentId" />
+            <div class="learning-path-container">
+              <LearningPath v-if="currentStudentId" :subject-id="selectedSubject" :student-id="currentStudentId" />
+            </div>
           </el-tab-pane>
 
           <!-- 学习计划 -->
@@ -357,7 +359,10 @@ import LearningPath from './LearningPath.vue'
 const userStore = useUserStore()
 
 // 学生ID（取自登录用户）
-const currentStudentId = computed(() => userStore.userInfo?.id || 'STU001')
+const currentStudentId = computed(() => {
+  const id = userStore.userInfo?.id
+  return id || 'STU001'
+})
 
 // 状态
 const activeTab = ref('chat')
@@ -1071,6 +1076,11 @@ const createGoal = async () => {
     overflow: hidden;
     padding: 0;
   }
+}
+
+.learning-path-container {
+  height: 100%;
+  min-height: 400px;
 }
 
 .chat-container {

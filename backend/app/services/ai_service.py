@@ -343,7 +343,7 @@ class AIService:
             {
                 "course_id": str(s.course_id) if s.course_id else None,
                 "score": float(s.score) if s.score else 0,
-                "score_type": s.score_type,
+                "exam_type": s.exam_type,
                 "exam_date": s.recorded_at.isoformat() if s.recorded_at else None,
             }
             for s in scores
@@ -381,7 +381,7 @@ class AIService:
         total_records = len(record_data)
 
         # 定义能力维度及规则（基于题目类型）
-        # 从 score_type 推断能力维度
+        # 从 exam_type 推断能力维度
         dimension_rules = {
             "选择题": ("选择题能力", 0.4),
             "填空题": ("基础知识掌握", 0.3),
@@ -395,7 +395,7 @@ class AIService:
         # 按题型聚合得分
         type_scores: dict = {}
         for s in score_data:
-            st = s.get("score_type") or "其他"
+            st = s.get("exam_type") or "其他"
             if st not in type_scores:
                 type_scores[st] = []
             type_scores[st].append(s["score"])
@@ -405,8 +405,8 @@ class AIService:
         strengths: List[str] = []
         weaknesses: List[str] = []
 
-        for score_type, (dim_name, weight) in dimension_rules.items():
-            scores_for_type = type_scores.get(score_type, [])
+        for exam_type, (dim_name, weight) in dimension_rules.items():
+            scores_for_type = type_scores.get(exam_type, [])
             if not scores_for_type:
                 continue
             dim_avg = sum(scores_for_type) / len(scores_for_type)
@@ -429,7 +429,7 @@ class AIService:
                     score=round(dim_avg, 1),
                     level=level,
                     trend=trend,
-                    evidence=[f"基于{len(scores_for_type)}次{score_type}的平均得分"],
+                    evidence=[f"基于{len(scores_for_type)}次{exam_type}的平均得分"],
                 )
             )
 
@@ -506,7 +506,7 @@ class AIService:
         result = await self.db.execute(query)
         scores = list(result.scalars().all())
 
-        score_data = {s.score_type: float(s.score) if s.score else 0 for s in scores}
+        score_data = {s.exam_type: float(s.score) if s.score else 0 for s in scores}
 
         # 雷达图指标映射
         radar_map = {
@@ -520,12 +520,12 @@ class AIService:
         }
 
         indicators = []
-        for score_type, indicator_name in radar_map.items():
-            if score_type in score_data:
+        for exam_type, indicator_name in radar_map.items():
+            if exam_type in score_data:
                 indicators.append(
                     RadarIndicator(
                         name=indicator_name,
-                        value=score_data[score_type],
+                        value=score_data[exam_type],
                     )
                 )
 

@@ -59,7 +59,7 @@
         <el-table-column prop="semester" label="学期" width="120" />
         <el-table-column prop="exam_date" label="考试日期" width="120" />
         <el-table-column prop="rank" label="班级排名" width="80" />
-        <el-table-column prop="comment" label="评语" />
+        <el-table-column prop="remarks" label="评语" />
         <el-table-column label="操作" width="120" fixed="right">
           <template #default="{ row }">
             <el-button type="primary" link @click="handleEdit(row)">编辑</el-button>
@@ -276,7 +276,7 @@ const handleSubmit = async () => {
     student_id: formData.student_id,
     course_id: formData.course_id,
     score: formData.score,
-    score_type: formData.exam_type,
+    exam_type: formData.exam_type,
     semester: formData.semester,
     rank: formData.rank,
     remarks: formData.comment,
