@@ -192,6 +192,12 @@ const routes: RouteRecordRaw[] = [
         component: () => import('@/views/attendance/Attendance.vue'),
         meta: { title: '考勤记录', module: 'attendance' },
       },
+      {
+        path: '/attendance/leave',
+        name: 'LeaveManagement',
+        component: () => import('@/views/attendance/LeaveManagement.vue'),
+        meta: { title: '请假管理', module: 'attendance' },
+      },
 
       // ==================== 通知公告 ====================
       {
@@ -199,6 +205,20 @@ const routes: RouteRecordRaw[] = [
         name: 'Notices',
         component: () => import('@/views/notice/Notice.vue'),
         meta: { title: '通知公告', module: 'notice' },
+      },
+      // ==================== 家校通知 ====================
+      {
+        path: '/notification/list',
+        name: 'NotificationList',
+        component: () => import('@/views/notification/NotificationList.vue'),
+        meta: { title: '家校联系', module: 'notification' },
+      },
+      // ==================== 招生管理 ====================
+      {
+        path: '/recruitment/manage',
+        name: 'RecruitmentManagement',
+        component: () => import('@/views/recruitment/RecruitmentManagement.vue'),
+        meta: { title: '招生管理', module: 'recruitment' },
       },
 
       // ==================== 系统设置 ====================

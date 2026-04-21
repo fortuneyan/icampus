@@ -45,7 +45,7 @@ api_router.include_router(settings_router, prefix="/settings", tags=["系统设�
 api_router.include_router(message_router, prefix="/message", tags=["消息中心"])
 api_router.include_router(student_router, prefix="/student", tags=["学生管理"])
 api_router.include_router(extended_router, prefix="/extended", tags=["扩展业务"])
-api_router.include_router(notification_router, prefix="/notification", tags=["通知管理"])
+api_router.include_router(notification_router, prefix="/notification", tags=["家校联系"])
 api_router.include_router(recruitment_router, prefix="/recruitment", tags=["招生管理"])
 
 # ----- AI 功能聚合路由 -----

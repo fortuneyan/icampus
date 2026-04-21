@@ -126,15 +126,34 @@
             <span>考勤管理</span>
           </template>
           <el-menu-item index="/attendance/list">考勤记录</el-menu-item>
+          <el-menu-item index="/attendance/leave">请假管理</el-menu-item>
         </el-sub-menu>
         
         <!-- ==================== 通知公告 ==================== -->
         <el-sub-menu index="notice">
           <template #title>
             <el-icon><Bell /></el-icon>
-            <span>通知公告</span>
+            <span>公告管理</span>
           </template>
-          <el-menu-item index="/notice/list">通知列表</el-menu-item>
+          <el-menu-item index="/notice/list">公告列表</el-menu-item>
+        </el-sub-menu>
+
+        <!-- ==================== 家校通知 ==================== -->
+        <el-sub-menu index="notification">
+          <template #title>
+            <el-icon><Message /></el-icon>
+            <span>家校联系</span>
+          </template>
+          <el-menu-item index="/notification/list">通知管理</el-menu-item>
+        </el-sub-menu>
+
+        <!-- ==================== 招生管理 ==================== -->
+        <el-sub-menu index="recruitment">
+          <template #title>
+            <el-icon><User /></el-icon>
+            <span>招生管理</span>
+          </template>
+          <el-menu-item index="/recruitment/manage">招生管理</el-menu-item>
         </el-sub-menu>
         
         <!-- ==================== 扩展业务 ==================== -->
