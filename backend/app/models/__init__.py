@@ -46,6 +46,8 @@ from app.models.card import CampusCard, CardTransaction, AccessRecord, Merchant
 from app.models.dormitory import Dormitory, DormitoryRoom, DormitoryAssignment, DormitoryAttendance
 from app.models.scholarship import Scholarship, ScholarshipApplication, GrantRecord, PoorStudent
 from app.models.notice import Notice, NoticeRead
+from app.models.homework import Homework, HomeworkSubmission, WrongQuestion, HomeworkFeedback, HomeworkNotification
+from app.models.enrollment_change import EnrollmentChange
 
 __all__ = [
     "User",
@@ -112,4 +114,5 @@ __all__ = [
     "PoorStudent",
     "Notice",
     "NoticeRead",
+    "EnrollmentChange",
 ]

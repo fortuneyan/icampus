@@ -16,6 +16,26 @@ from app.services.settings_service import SettingsService
 router = APIRouter()
 
 
+@router.get("/public/config", response_model=dict)
+async def get_public_config(
+    key: Optional[str] = Query(None),
+    db: AsyncSession = Depends(get_db),
+):
+    """公开配置接口，无需登录"""
+    service = SettingsService(db)
+    if key:
+        setting = await service.get_setting(key)
+        if setting:
+            return success(
+                {
+                    "setting_key": setting.setting_key,
+                    "setting_value": setting.setting_value,
+                }
+            )
+        return success(None)
+    return success(None)
+
+
 @router.get("/config", response_model=dict)
 async def get_config(
     key: Optional[str] = Query(None),

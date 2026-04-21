@@ -226,6 +226,13 @@ const routes: RouteRecordRaw[] = [
         component: () => import('@/views/recruitment/PublicApply.vue'),
         meta: { title: '在线报名', module: 'recruitment', public: true },
       },
+      // ==================== 作业管理 ====================
+      {
+        path: '/notification/homework',
+        name: 'HomeworkManagement',
+        component: () => import('@/views/notification/HomeworkManagement.vue'),
+        meta: { title: '作业管理', module: 'notification' },
+      },
 
       // ==================== 系统设置 ====================
       {

@@ -48,14 +48,12 @@ async def get_notifications_admin(
     current_user: User = Depends(get_current_user),
 ):
     from sqlalchemy import select, func
+    from app.models.notification import Notification
     
-    service = NotificationService(db)
-    query = select(NotificationService.model).order_by(
-        NotificationService.model.created_at.desc()
-    )
+    query = select(Notification).order_by(Notification.created_at.desc())
     
     if status:
-        query = query.where(NotificationService.model.status == status)
+        query = query.where(Notification.status == status)
     
     result = await db.execute(query)
     notifications = result.scalars().all()

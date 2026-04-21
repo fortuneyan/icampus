@@ -52,6 +52,18 @@ export function updateRecruitmentPlan(id: string, data: Partial<RecruitmentPlanF
   return request.put(`/recruitment/plans/${id}`, data)
 }
 
+export function changePlanStatus(id: string, status: string) {
+  return request.put(`/recruitment/plans/${id}/status`, null, { params: { status } })
+}
+
+export function publishPlan(id: string) {
+  return request.post(`/recruitment/plans/${id}/publish`)
+}
+
+export function closePlan(id: string) {
+  return request.post(`/recruitment/plans/${id}/close`)
+}
+
 export function getPublicPlan(planId: string) {
   return request.get(`/recruitment/plans/${planId}/public`)
 }
@@ -107,4 +119,24 @@ export function publicApply(data: ApplicantForm) {
 
 export function checkApplicationStatus(phone: string) {
   return request.get('/recruitment/apply/status', { params: { phone } })
+}
+
+export function enrollApplicant(applicantId: string, classId: string, enrollmentType?: string) {
+  return request.post(`/recruitment/applicants/${applicantId}/enroll`, null, { params: { class_id: classId, enrollment_type: enrollmentType || 'regular' } })
+}
+
+export function batchPromoteStudents(studentIds: string[], targetGradeId: string, targetClassId: string) {
+  return request.put('/recruitment/students/batch-promote', { student_ids: studentIds, target_grade_id: targetGradeId, target_class_id: targetClassId })
+}
+
+export function transferStudent(studentId: string, targetClassId: string, reason: string) {
+  return request.put(`/recruitment/students/${studentId}/transfer`, null, { params: { target_class_id: targetClassId, reason } })
+}
+
+export function changeStudentStatus(studentId: string, status: string) {
+  return request.put(`/recruitment/students/${studentId}/status`, null, { params: { status } })
+}
+
+export function getStudentHistory(studentId: string) {
+  return request.get(`/recruitment/students/${studentId}/history`)
 }

@@ -24,6 +24,8 @@ from app.api.v1.student import router as student_router
 from app.api.v1.extended import router as extended_router
 from app.api.v1.notification import router as notification_router
 from app.api.v1.recruitment import router as recruitment_router
+from app.api.v1.recruitment import homework as homework_router
+from app.api.v1.enrollment import router as enrollment_router
 
 # ==================== AI 功能路由 ====================
 from app.api.v1.ai import router as ai_router
@@ -47,6 +49,8 @@ api_router.include_router(student_router, prefix="/student", tags=["学生管理
 api_router.include_router(extended_router, prefix="/extended", tags=["扩展业务"])
 api_router.include_router(notification_router, prefix="/notification", tags=["家校联系"])
 api_router.include_router(recruitment_router, prefix="/recruitment", tags=["招生管理"])
+api_router.include_router(homework_router.router, prefix="/homework", tags=["作业管理"])
+api_router.include_router(enrollment_router, prefix="/enrollment", tags=["学籍管理"])
 
 # ----- AI 功能聚合路由 -----
 # 所有 AI 相关接口统一挂载在 /api/v1/ai/ 下

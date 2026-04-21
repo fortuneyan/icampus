@@ -19,6 +19,10 @@ export function getConfig(key?: string) {
   return request.get('/settings/config', { params: { key } })
 }
 
+export function getPublicConfig(key?: string) {
+  return request.get('/settings/public/config', { params: { key } })
+}
+
 export function updateConfig(data: { setting_key: string; setting_value: string; value_type: string }) {
   return request.put('/settings/config', data)
 }

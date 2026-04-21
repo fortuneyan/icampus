@@ -145,6 +145,7 @@
             <span>家校联系</span>
           </template>
           <el-menu-item index="/notification/list">通知管理</el-menu-item>
+          <el-menu-item index="/notification/homework">作业管理</el-menu-item>
         </el-sub-menu>
 
         <!-- ==================== 招生管理 ==================== -->

@@ -99,6 +99,88 @@ async def update_recruitment_plan(
     return success({"id": str(plan.id)}, "招生计划更新成功")
 
 
+@router.put("/plans/{plan_id}/status", response_model=dict)
+async def change_plan_status(
+    plan_id: UUID,
+    status: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    valid_statuses = ["draft", "published", "recruiting", "closed"]
+    if status not in valid_statuses:
+        from app.core.exceptions import ValidationException
+        raise ValidationException(f"无效的状态: {status}")
+    
+    result = await db.execute(select(RecruitmentPlan).where(RecruitmentPlan.id == plan_id))
+    plan = result.scalar_one_or_none()
+    
+    if not plan:
+        from app.core.exceptions import NotFoundException
+        raise NotFoundException("招生计划不存在")
+    
+    plan.status = status
+    await db.commit()
+    await db.refresh(plan)
+    
+    return success({"id": str(plan.id), "status": plan.status}, "状态更新成功")
+
+
+@router.post("/plans/{plan_id}/publish", response_model=dict)
+async def publish_plan(
+    plan_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    from sqlalchemy import update
+    from app.models.notification import Notification
+    
+    result = await db.execute(select(RecruitmentPlan).where(RecruitmentPlan.id == plan_id))
+    plan = result.scalar_one_or_none()
+    
+    if not plan:
+        from app.core.exceptions import NotFoundException
+        raise NotFoundException("招生计划不存在")
+    
+    notification = Notification(
+        title=f"招生公告: {plan.name}",
+        content=plan.description or "",
+        notification_type="announcement",
+        sender_id=current_user.id,
+        scope_type="all",
+        status="published",
+    )
+    db.add(notification)
+    await db.flush()
+    
+    plan.status = "published"
+    plan.is_public = True
+    plan.announcement_id = notification.id
+    await db.commit()
+    await db.refresh(plan)
+    
+    return success({"id": str(plan.id), "notification_id": str(notification.id)}, "发布成功")
+
+
+@router.post("/plans/{plan_id}/close", response_model=dict)
+async def close_plan(
+    plan_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    result = await db.execute(select(RecruitmentPlan).where(RecruitmentPlan.id == plan_id))
+    plan = result.scalar_one_or_none()
+    
+    if not plan:
+        from app.core.exceptions import NotFoundException
+        raise NotFoundException("招生计划不存在")
+    
+    plan.status = "closed"
+    await db.commit()
+    await db.refresh(plan)
+    
+    return success({"id": str(plan.id)}, "招生计划已关闭")
+
+
 @router.get("/applicants", response_model=dict)
 async def get_applicants(
     status: Optional[str] = Query(None),
@@ -312,12 +394,35 @@ async def public_apply(
     recruitment_plan_id: Optional[str] = Form(None),
     db: AsyncSession = Depends(get_db),
 ):
+    from app.models.recruitment import RecruitmentPlan, Applicant
+    from app.models.recruitment import Applicant
+    
     existing = await db.execute(
         select(Applicant).where(Applicant.phone == phone)
     )
     if existing.scalar_one_or_none():
         from app.core.exceptions import ConflictException
         raise ConflictException("该手机号已报名，请勿重复提交")
+    
+    plan_id = None
+    is_off_plan = False
+    
+    if recruitment_plan_id:
+        plan_id = UUID(recruitment_plan_id)
+    else:
+        active_plan_result = await db.execute(
+            select(RecruitmentPlan)
+            .where(RecruitmentPlan.status == "recruiting")
+            .where(RecruitmentPlan.start_date <= datetime.now())
+            .where(RecruitmentPlan.end_date >= datetime.now())
+            .order_by(RecruitmentPlan.quota - RecruitmentPlan.enrolled_count)
+            .limit(1)
+        )
+        active_plan = active_plan_result.scalar_one_or_none()
+        if active_plan:
+            plan_id = active_plan.id
+        else:
+            is_off_plan = True
     
     applicant_data = {
         "student_name": student_name,
@@ -329,7 +434,7 @@ async def public_apply(
         "address": address,
         "current_school": current_school,
         "source": source or "online",
-        "recruitment_plan_id": UUID(recruitment_plan_id) if recruitment_plan_id else None,
+        "recruitment_plan_id": plan_id,
     }
     
     if birth_date:
@@ -340,10 +445,21 @@ async def public_apply(
     
     applicant = Applicant(**applicant_data)
     db.add(applicant)
+    
+    if plan_id:
+        plan_result = await db.execute(select(RecruitmentPlan).where(RecruitmentPlan.id == plan_id))
+        plan = plan_result.scalar_one_or_none()
+        if plan:
+            plan.enrolled_count = (plan.enrolled_count or 0) + 1
+    
     await db.commit()
     await db.refresh(applicant)
     
-    return success({"id": str(applicant.id)}, "报名信息提交成功")
+    msg = "报名信息提交成功"
+    if is_off_plan:
+        msg += "（计划外招生）"
+    
+    return success({"id": str(applicant.id), "is_off_plan": is_off_plan}, msg)
 
 
 @router.get("/apply/status", response_model=dict)

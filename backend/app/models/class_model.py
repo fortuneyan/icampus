@@ -25,3 +25,21 @@ class Class(Base):
 
     grade = relationship("Grade", back_populates="classes")
     students = relationship("Student", back_populates="class_obj")
+    student_history = relationship("StudentClassHistory", back_populates="class_obj")
+
+    @property
+    def display_name(self) -> str:
+        """显示名称: YYYY级X班"""
+        if self.grade and self.grade.enrollment_year:
+            return f"{self.grade.enrollment_year}级{self.grade.grade_level}班"
+        return self.name
+
+    @property
+    def display_code(self) -> str:
+        """显示编号: GYY-CXX"""
+        if self.grade and self.grade.enrollment_year and self.grade.grade_level:
+            year_suffix = str(self.grade.enrollment_year)[-2:]
+            grade_num = self.grade.grade_level
+            class_num = 1
+            return f"G{year_suffix}-C{grade_num:02d}{class_num:02d}"
+        return self.code

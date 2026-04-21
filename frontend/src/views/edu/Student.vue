@@ -27,11 +27,20 @@
       <el-table :data="tableData" v-loading="loading" stripe>
         <el-table-column prop="student_no" label="学号" width="120" />
         <el-table-column prop="name" label="姓名" width="100" />
-        <el-table-column prop="gender" label="性别" width="60" />
-        <el-table-column prop="phone" label="联系电话" width="130" />
-        <el-table-column prop="grade_id" label="年级" width="100">
+        <el-table-column prop="gender" label="性别" width="60">
           <template #default="{ row }">
-            {{ getGradeName(row.grade_id) }}
+            {{ row.gender === 'male' ? '男' : row.gender === 'female' ? '女' : '-' }}
+          </template>
+        </el-table-column>
+        <el-table-column label="届别" width="120">
+          <template #default="{ row }">
+            <el-tag v-if="row.enrollment_cohort" type="info">{{ row.enrollment_cohort }}</el-tag>
+            <span v-else>-</span>
+          </template>
+        </el-table-column>
+        <el-table-column label="年级" width="120">
+          <template #default="{ row }">
+            <span>{{ row.grade_name || getGradeName(row.grade_id) }}</span>
           </template>
         </el-table-column>
         <el-table-column prop="class_id" label="班级" width="100">
@@ -39,17 +48,34 @@
             {{ getClassName(row.class_id) }}
           </template>
         </el-table-column>
-        <el-table-column prop="status" label="状态" width="80">
+        <el-table-column label="学籍状态" width="100">
           <template #default="{ row }">
-            <el-tag :type="row.status === 'active' ? 'success' : 'danger'">
-              {{ row.status === 'active' ? '在读' : '离校' }}
+            <el-tag :type="getStatusType(row.enrollment_status)">
+              {{ getStatusText(row.enrollment_status) }}
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="180" fixed="right">
+        <el-table-column label="操作" width="160" fixed="right">
           <template #default="{ row }">
-            <el-button type="primary" link @click="handleEdit(row)">编辑</el-button>
-            <el-button type="danger" link @click="handleDelete(row)">删除</el-button>
+            <div class="action-buttons">
+              <el-button type="primary" link @click="handleEdit(row)">编辑</el-button>
+              <el-dropdown @command="(cmd) => handleCommand(cmd, row)">
+                <span class="more-link">
+                  更多<el-icon class="el-icon--right"><ArrowDown /></el-icon>
+                </span>
+                <template #dropdown>
+                  <el-dropdown-menu>
+                    <el-dropdown-item v-if="row.enrollment_status === 'in_school'" command="repeat">留级</el-dropdown-item>
+                    <el-dropdown-item v-if="row.enrollment_status === 'in_school'" command="suspend">休学</el-dropdown-item>
+                    <el-dropdown-item v-if="row.enrollment_status === 'suspended'" command="resume">复学</el-dropdown-item>
+                    <el-dropdown-item v-if="row.enrollment_status === 'in_school'" command="graduate">毕业</el-dropdown-item>
+                    <el-dropdown-item v-if="row.enrollment_status === 'in_school'" command="quit">退学</el-dropdown-item>
+                    <el-dropdown-item command="history">变动历史</el-dropdown-item>
+                    <el-dropdown-item command="delete" divided>删除</el-dropdown-item>
+                  </el-dropdown-menu>
+                </template>
+              </el-dropdown>
+            </div>
           </template>
         </el-table-column>
       </el-table>
@@ -94,6 +120,9 @@
             <el-option v-for="c in formClassOptions" :key="c.value" :label="c.label" :value="c.value" />
           </el-select>
         </el-form-item>
+        <el-form-item label="入学年份">
+          <el-input-number v-model="formData.enrollment_year" :min="2000" :max="2100" />
+        </el-form-item>
         <el-form-item label="状态" prop="status">
           <el-select v-model="formData.status">
             <el-option label="在读" value="active" />
@@ -113,9 +142,11 @@
 import { ref, reactive, onMounted, computed } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import type { FormInstance } from 'element-plus'
+import { ArrowDown } from '@element-plus/icons-vue'
 import { getStudentList, createStudent, updateStudent, deleteStudent } from '@/api/edu/student'
 import { getGradeOptions } from '@/api/edu/grade'
 import { getClassOptions } from '@/api/edu/class'
+import request from '@/utils/request'
 
 const loading = ref(false)
 const tableData = ref([])
@@ -175,6 +206,28 @@ const handleFormGradeChange = () => {
 const getGradeName = (id: string) => gradeOptions.value.find(g => g.value === id)?.label || ''
 const getClassName = (id: string) => classOptions.value.find(c => c.value === id)?.label || ''
 
+const getStatusType = (status?: string) => {
+  const map: Record<string, string> = {
+    'in_school': 'success',
+    'suspended': 'warning',
+    'graduated': 'info',
+    'leave': 'danger',
+    'repeating': 'warning',
+  }
+  return map[status || 'in_school'] || 'info'
+}
+
+const getStatusText = (status?: string) => {
+  const map: Record<string, string> = {
+    'in_school': '在校',
+    'suspended': '休学',
+    'graduated': '已毕业',
+    'leave': '离校',
+    'repeating': '留级',
+  }
+  return map[status || 'in_school'] || '在校'
+}
+
 const handleSearch = () => { pagination.page = 1; fetchData() }
 const handleReset = () => { searchForm.keyword = ''; searchForm.grade_id = ''; searchForm.class_id = ''; handleSearch() }
 
@@ -211,6 +264,68 @@ const handleDelete = async (row: any) => {
   } catch (e: any) { if (e !== 'cancel') ElMessage.error(e.message || '删除失败') }
 }
 
+const handleCommand = async (command: string, row: any) => {
+  switch (command) {
+    case 'edit':
+      handleEdit(row)
+      break
+    case 'repeat':
+      try {
+        await ElMessageBox.confirm(`确定要将 ${row.name} 留级吗？`, '留级确认', { type: 'warning' })
+        await request.post(`/enrollment/students/${row.id}/repeat`)
+        ElMessage.success('留级成功')
+        fetchData()
+      } catch (e: any) { if (e !== 'cancel') ElMessage.error(e.message || '操作失败') }
+      break
+    case 'suspend':
+      try {
+        await ElMessageBox.confirm(`确定要将 ${row.name} 休学吗？`, '休学确认', { type: 'warning' })
+        await request.post(`/enrollment/students/${row.id}/suspend?reason=因故休学`)
+        ElMessage.success('休学成功')
+        fetchData()
+      } catch (e: any) { if (e !== 'cancel') ElMessage.error(e.message || '操作失败') }
+      break
+    case 'resume':
+      try {
+        await request.post(`/enrollment/students/${row.id}/resume`)
+        ElMessage.success('复学成功')
+        fetchData()
+      } catch (e: any) { ElMessage.error(e.message || '操作失败') }
+      break
+    case 'graduate':
+      try {
+        await ElMessageBox.confirm(`确定要将 ${row.name} 标记为毕业吗？`, '毕业确认', { type: 'warning' })
+        await request.post(`/enrollment/students/${row.id}/graduate`)
+        ElMessage.success('毕业办理成功')
+        fetchData()
+      } catch (e: any) { if (e !== 'cancel') ElMessage.error(e.message || '操作失败') }
+      break
+    case 'quit':
+      try {
+        await ElMessageBox.confirm(`确定要将 ${row.name} 退学吗？`, '退学确认', { type: 'warning' })
+        await request.post(`/enrollment/students/${row.id}/quit?reason=主动退学`)
+        ElMessage.success('退学办理成功')
+        fetchData()
+      } catch (e: any) { if (e !== 'cancel') ElMessage.error(e.message || '操作失败') }
+      break
+    case 'history':
+      try {
+        const res = await request.get(`/enrollment/students/${row.id}/history`)
+        const changes = res.data?.changes || []
+        let msg = `${row.name} 学籍变动历史:\n`
+        changes.forEach((c: any) => {
+          msg += `${c.change_date?.slice(0,10)} ${c.change_type_name} ${c.reason || ''}\n`
+        })
+        if (changes.length === 0) msg += '暂无变动记录'
+        ElMessageBox.alert(msg, '学籍变动历史')
+      } catch (e: any) { ElMessage.error(e.message || '获取失败') }
+      break
+    case 'delete':
+      handleDelete(row)
+      break
+  }
+}
+
 onMounted(() => { fetchGrades(); fetchClasses(); fetchData() })
 </script>
 
@@ -218,5 +333,23 @@ onMounted(() => { fetchGrades(); fetchClasses(); fetchData() })
 .student-management {
   .toolbar { margin-bottom: 20px; }
   .pagination { margin-top: 20px; display: flex; justify-content: flex-end; }
+
+  .action-buttons {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .more-link {
+    display: flex;
+    align-items: center;
+    cursor: pointer;
+    color: #409eff;
+    &:hover { color: #66b1ff; }
+  }
+
+  .el-icon--right {
+    margin-left: 2px;
+  }
 }
 </style>

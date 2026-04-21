@@ -20,6 +20,10 @@ class RecruitmentPlan(Base):
     description = Column(Text, nullable=True)
     requirements = Column(Text, nullable=True)
     status = Column(String(20), default="draft")
+    
+    is_public = Column(Boolean, default=False)
+    announcement_id = Column(UUID(as_uuid=True), ForeignKey("notifications.id"), nullable=True)
+    
     created_at = Column(DateTime, default=datetime.now)
     updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)
 
@@ -42,10 +46,14 @@ class Applicant(Base):
     source = Column(String(50), default="offline")
     status = Column(String(20), default="pending")
     recruitment_plan_id = Column(UUID(as_uuid=True), ForeignKey("recruitment_plans.id"), nullable=True)
+    is_off_plan = Column(Boolean, default=False)
     application_year = Column(Integer, nullable=True)
     enrollment_batch = Column(String(50), nullable=True)
     remarks = Column(Text, nullable=True)
     is_enrolled = Column(Boolean, default=False)
+    enrolled_class_id = Column(UUID(as_uuid=True), ForeignKey("classes.id"), nullable=True)
+    enrolled_at = Column(DateTime, nullable=True)
+    student_id = Column(UUID(as_uuid=True), ForeignKey("students.id"), nullable=True)
     created_at = Column(DateTime, default=datetime.now)
     updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)
 

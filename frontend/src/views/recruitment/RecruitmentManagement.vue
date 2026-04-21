@@ -12,6 +12,7 @@
                 <el-select v-model="planSearchForm.status" placeholder="请选择" clearable>
                   <el-option label="草稿" value="draft" />
                   <el-option label="已发布" value="published" />
+                  <el-option label="报名中" value="recruiting" />
                   <el-option label="已结束" value="closed" />
                 </el-select>
               </el-form-item>
@@ -37,13 +38,16 @@
               <template #default="{ row }">
                 <el-tag v-if="row.status === 'draft'" type="info">草稿</el-tag>
                 <el-tag v-else-if="row.status === 'published'" type="success">已发布</el-tag>
-                <el-tag v-else type="warning">已结束</el-tag>
+                <el-tag v-else-if="row.status === 'recruiting'" type="warning">报名中</el-tag>
+                <el-tag v-else type="danger">已结束</el-tag>
               </template>
             </el-table-column>
-            <el-table-column label="操作" width="150" fixed="right">
+            <el-table-column label="操作" width="200" fixed="right">
               <template #default="{ row }">
                 <el-button type="primary" link @click="handleEditPlan(row)">编辑</el-button>
-                <el-button type="danger" link @click="handleDeletePlan(row)">删除</el-button>
+                <el-button v-if="row.status === 'draft'" type="success" link @click="handlePublishPlan(row)">发布</el-button>
+                <el-button v-if="row.status === 'published'" type="warning" link @click="handleStartRecruiting(row)">开始报名</el-button>
+                <el-button v-if="row.status === 'recruiting'" type="danger" link @click="handleClosePlan(row)">关闭</el-button>
               </template>
             </el-table-column>
           </el-table>
@@ -131,14 +135,16 @@
                 <el-tag v-else-if="row.status === 'contacted'" type="info">已联系</el-tag>
                 <el-tag v-else-if="row.status === 'interviewed'" type="primary">已面试</el-tag>
                 <el-tag v-else-if="row.status === 'admitted'" type="success">已录取</el-tag>
+                <el-tag v-else-if="row.status === 'enrolled'" type="success">已入学</el-tag>
               </template>
             </el-table-column>
             <el-table-column prop="created_at" label="报名时间" width="180" />
-            <el-table-column label="操作" width="200" fixed="right">
+            <el-table-column label="操作" width="280" fixed="right">
               <template #default="{ row }">
                 <el-button type="primary" link @click="handleViewApplicant(row)">查看</el-button>
                 <el-button type="success" link @click="handleAddFollowUp(row)">跟进</el-button>
                 <el-button type="warning" link @click="handleChangeStatus(row)">状态</el-button>
+                <el-button v-if="row.status === 'admitted'" type="danger" link @click="handleEnroll(row)">录取入学</el-button>
               </template>
             </el-table-column>
           </el-table>
@@ -317,27 +323,70 @@
         <el-button type="primary" @click="handleBatchSubmit">确定更新{{ selectedApplicants.length }}条</el-button>
       </template>
     </el-dialog>
+
+    <el-dialog v-model="enrollDialogVisible" title="录取入学" width="500px">
+      <el-form label-width="100px">
+        <el-form-item label="学生姓名">
+          <el-input v-model="enrollFormData.student_name" disabled />
+        </el-form-item>
+        <el-form-item label="选择班级" required>
+          <el-select v-model="enrollFormData.class_id" placeholder="请选择班级" style="width: 100%">
+            <el-option v-for="c in classList" :key="c.id" :label="c.name" :value="c.id" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="入学类型">
+          <el-radio-group v-model="enrollFormData.enrollment_type">
+            <el-radio value="regular">正常入学</el-radio>
+            <el-radio value="off_plan">择校生</el-radio>
+          </el-radio-group>
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="enrollDialogVisible = false">取消</el-button>
+        <el-button type="primary" :loading="enrolling" @click="handleEnrollSubmit">确定入学</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import request from '@/utils/request'
 import {
   getRecruitmentPlans,
   createRecruitmentPlan,
   updateRecruitmentPlan,
+  changePlanStatus,
+  publishPlan,
+  closePlan,
   getApplicants,
+  createApplicant,
   updateApplicantStatus,
   batchUpdateApplicants,
   importApplicants,
   downloadTemplate,
   addFollowUp,
   getFollowUps,
-  getRecruitmentStats
+  getRecruitmentStats,
+  enrollApplicant
 } from '@/api/recruitment'
+import { getPublicConfig } from '@/api/settings'
+import { getClasses } from '@/api/edu/scheduling'
 
 const activeTab = ref('plans')
+const schoolName = ref('')
+
+const loadSchoolName = async () => {
+  try {
+    const res = await getPublicConfig('school_name')
+    if (res.code === 200 && res.data) {
+      schoolName.value = res.data.setting_value || ''
+    }
+  } catch (e) {
+    console.error('获取学校名称失败', e)
+  }
+}
 
 const planSearchForm = reactive({
   year: '',
@@ -424,6 +473,16 @@ const applicantFormRules = {
   phone: [{ required: true, message: '请输入联系电话', trigger: 'blur' }]
 }
 
+const enrollDialogVisible = ref(false)
+const enrolling = ref(false)
+const currentEnrollApplicantId = ref('')
+const enrollFormData = reactive({
+  student_name: '',
+  class_id: '',
+  enrollment_type: 'regular'
+})
+const classList = ref<any[]>([])
+
 const formatDate = (date: string) => {
   if (!date) return '-'
   return date.substring(0, 10)
@@ -501,6 +560,36 @@ const handlePlanSubmit = async () => {
       }
     }
   })
+}
+
+const handlePublishPlan = async (row: any) => {
+  try {
+    await publishPlan(row.id)
+    ElMessage.success('发布成功，将同时发布招生公告')
+    fetchPlans()
+  } catch (e: any) {
+    ElMessage.error(e.message || '发布失败')
+  }
+}
+
+const handleStartRecruiting = async (row: any) => {
+  try {
+    await changePlanStatus(row.id, 'recruiting')
+    ElMessage.success('已开始报名')
+    fetchPlans()
+  } catch (e: any) {
+    ElMessage.error(e.message || '操作失败')
+  }
+}
+
+const handleClosePlan = async (row: any) => {
+  try {
+    await closePlan(row.id)
+    ElMessage.success('已关闭招生')
+    fetchPlans()
+  } catch (e: any) {
+    ElMessage.error(e.message || '操作失败')
+  }
 }
 
 const handleDeletePlan = async (row: any) => {
@@ -685,7 +774,7 @@ const handleAddApplicant = () => {
   applicantFormData.guardian_phone = ''
   applicantFormData.id_card = ''
   applicantFormData.address = ''
-  applicantFormData.current_school = ''
+  applicantFormData.current_school = schoolName.value
   applicantFormData.source = 'offline'
   applicantFormData.remarks = ''
   applicantDialogVisible.value = true
@@ -712,8 +801,42 @@ const handleApplicantSubmit = async () => {
   })
 }
 
+const handleEnroll = async (row: any) => {
+  currentEnrollApplicantId.value = row.id
+  enrollFormData.student_name = row.student_name
+  enrollFormData.class_id = ''
+  enrollFormData.enrollment_type = 'regular'
+  try {
+    const res = await getClasses()
+    classList.value = res.data
+    enrollDialogVisible.value = true
+  } catch (e) {
+    ElMessage.error('获取班级列表失败')
+  }
+}
+
+const handleEnrollSubmit = async () => {
+  if (!enrollFormData.class_id) {
+    ElMessage.warning('请选择班级')
+    return
+  }
+  enrolling.value = true
+  try {
+    await enrollApplicant(currentEnrollApplicantId.value, enrollFormData.class_id, enrollFormData.enrollment_type)
+    ElMessage.success('录取入学成功')
+    enrollDialogVisible.value = false
+    fetchApplicants()
+    fetchStats()
+  } catch (e: any) {
+    ElMessage.error(e.message || '录取入学失败')
+  } finally {
+    enrolling.value = false
+  }
+}
+
 onMounted(() => {
   fetchPlans()
+  loadSchoolName()
 })
 </script>
 
