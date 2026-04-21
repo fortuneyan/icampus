@@ -246,11 +246,11 @@
                 </el-form-item>
                 <el-form-item label="题型" required>
                   <el-checkbox-group v-model="questionForm.question_types">
-                    <el-checkbox label="single">单选题</el-checkbox>
-                    <el-checkbox label="multiple">多选题</el-checkbox>
-                    <el-checkbox label="fill">填空题</el-checkbox>
-                    <el-checkbox label="essay">解答题</el-checkbox>
-                    <el-checkbox label="calculation">计算题</el-checkbox>
+                    <el-checkbox value="single">单选题</el-checkbox>
+                    <el-checkbox value="multiple">多选题</el-checkbox>
+                    <el-checkbox value="fill">填空题</el-checkbox>
+                    <el-checkbox value="essay">解答题</el-checkbox>
+                    <el-checkbox value="calculation">计算题</el-checkbox>
                   </el-checkbox-group>
                 </el-form-item>
                 <el-form-item label="难度">

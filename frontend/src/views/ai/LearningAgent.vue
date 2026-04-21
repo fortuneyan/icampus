@@ -9,8 +9,8 @@
         </span>
       </div>
       <div class="header-actions">
-        <el-select v-model="selectedSubject" placeholder="选择科目" size="small" @change="onSubjectChange">
-          <el-option label="全部科目" :value="undefined" />
+        <el-select  class="course-list" v-model="selectedSubject" placeholder="选择科目" size="small" @change="onSubjectChange">
+          <el-option label="全部科目" value="" />
           <el-option v-for="subject in subjects" :key="subject.id" :label="subject.name" :value="subject.id" />
         </el-select>
         <el-button @click="showStatsDialog = true" size="small">学习统计</el-button>
@@ -155,7 +155,7 @@
           <!-- 学习路径 -->
           <el-tab-pane label="🛤️ 学习路径" name="path">
             <div class="learning-path-container">
-              <LearningPath v-if="currentStudentId" :subject-id="selectedSubject" :student-id="currentStudentId" />
+              <LearningPath :subject-id="selectedSubject === '' ? undefined : selectedSubject" :student-id="currentStudentId" />
             </div>
           </el-tab-pane>
 
@@ -288,23 +288,21 @@
     <el-dialog v-model="showGoalsDialog" title="学习目标" width="500px">
       <div class="goals-dialog">
         <el-button type="primary" class="add-goal-btn" @click="showAddGoal = true">+ 添加目标</el-button>
-        <el-list>
-          <el-list-item v-for="goal in learningGoals" :key="goal.id">
-            <div class="goal-item">
-              <div class="goal-header">
-                <span class="goal-title">{{ goal.title }}</span>
-                <el-tag v-if="goal.status === 'achieved'" type="success" size="small">已达成</el-tag>
-                <el-tag v-else-if="goal.status === 'active'" type="primary" size="small">进行中</el-tag>
-              </div>
-              <p class="goal-desc">{{ goal.description }}</p>
-              <div class="goal-progress">
-                <span>进度 {{ goal.progress }}%</span>
-                <el-progress :percentage="goal.progress" :show-text="true" />
-              </div>
-              <div class="goal-meta">目标日期: {{ formatDate(goal.targetDate) }}</div>
+        <div class="goal-list">
+          <div v-for="goal in learningGoals" :key="goal.id" class="goal-item">
+            <div class="goal-header">
+              <span class="goal-title">{{ goal.title }}</span>
+              <el-tag v-if="goal.status === 'achieved'" type="success" size="small">已达成</el-tag>
+              <el-tag v-else-if="goal.status === 'active'" type="primary" size="small">进行中</el-tag>
             </div>
-          </el-list-item>
-        </el-list>
+            <p class="goal-desc">{{ goal.description }}</p>
+            <div class="goal-progress">
+              <span>进度 {{ goal.progress }}%</span>
+              <el-progress :percentage="goal.progress" :show-text="true" />
+            </div>
+            <div class="goal-meta">目标日期: {{ formatDate(goal.targetDate) }}</div>
+          </div>
+        </div>
       </div>
     </el-dialog>
 
@@ -359,14 +357,14 @@ import LearningPath from './LearningPath.vue'
 const userStore = useUserStore()
 
 // 学生ID（取自登录用户）
-const currentStudentId = computed(() => {
+const currentStudentId = computed((): string => {
   const id = userStore.userInfo?.id
-  return id || 'STU001'
+  return id ?? 'STU001'
 })
 
 // 状态
 const activeTab = ref('chat')
-const selectedSubject = ref<number | undefined>(undefined)
+const selectedSubject = ref<number | string>('')
 const isTyping = ref(false)
 const showStatsDialog = ref(false)
 const showGoalsDialog = ref(false)
@@ -487,11 +485,14 @@ onUnmounted(() => {
 // 开始会话
 const startSession = async () => {
   try {
-    const session = await learningAgentAPI.startSession({
+    const params: any = {
       studentId: currentStudentId.value,
-      subjectId: selectedSubject.value,
       difficulty: 'medium'
-    })
+    }
+    if (selectedSubject.value !== '') {
+      params.subjectId = Number(selectedSubject.value)
+    }
+    const session = await learningAgentAPI.startSession(params)
     currentSession.value = session
     messages.value = session.messages || []
   } catch {
@@ -835,8 +836,8 @@ const generatePlan = async () => {
   }
   try {
     const plan = await learningAgentAPI.generateLearningPlan({
-      studentId: currentStudentId,
-      subjectId: selectedSubject.value,
+      studentId: currentStudentId.value,
+      subjectId: Number(selectedSubject.value),
       targetHours: 20,
       targetDate: new Date('2026-06-01')
     })
@@ -851,7 +852,7 @@ const generatePlan = async () => {
 const createGoal = async () => {
   try {
     const goal = await learningAgentAPI.createLearningGoal({
-      studentId: currentStudentId,
+      studentId: currentStudentId.value,
       title: newGoal.title,
       description: newGoal.description,
       targetDate: newGoal.targetDate,
@@ -897,7 +898,10 @@ const createGoal = async () => {
     font-weight: 600;
   }
 }
-
+.course-list {
+  width: max-content;
+  min-width: 80px;
+}
 .status-badge {
   padding: 4px 12px;
   border-radius: 12px;
@@ -1351,8 +1355,17 @@ const createGoal = async () => {
   }
 }
 
+.goal-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
 .goal-item {
   width: 100%;
+  padding: 16px;
+  background: #f5f7fa;
+  border-radius: 8px;
 
   .goal-header {
     display: flex;

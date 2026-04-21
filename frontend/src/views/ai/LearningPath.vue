@@ -227,17 +227,19 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, watch, nextTick, onBeforeUnmount } from 'vue'
+import { ref, computed, onMounted, watch, nextTick, onBeforeUnmount, withDefaults, defineProps } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Clock, Star, Connection } from '@element-plus/icons-vue'
 import * as echarts from 'echarts'
 import type { LearningPath, PathNode, PathEdge } from '@/api/ai/learning'
 import learningAgentAPI from '@/api/ai/learning'
 
-const props = defineProps<{
-  studentId: string
-  subjectId?: number
-}>()
+const props = withDefaults(defineProps<{
+  studentId?: string
+  subjectId?: number | string
+}>(), {
+  studentId: 'STU001'
+})
 
 // 状态
 const pathData = ref<LearningPath | null>(null)
@@ -265,7 +267,7 @@ let barChart: echarts.ECharts | null = null
 const svgWidth = 900
 const svgHeight = 500
 
-// 模拟练习题
+// MOCK 模拟练习题
 const practiceQuestions = ref([
   {
     text: '二次函数y=ax²+bx+c的顶点坐标公式是什么？',
@@ -281,11 +283,12 @@ const practiceQuestions = ref([
 
 // 计算属性
 const completedNodes = computed(() => {
-  return pathData.value?.nodes.filter(n => n.status === 'completed') || []
+  return pathData.value?.nodes?.filter(n => n.status === 'completed') || []
 })
 
 const currentNodeTitle = computed(() => {
-  const current = pathData.value?.nodes.find(n => n.id === pathData.value?.currentNodeId)
+  if (!pathData.value?.nodes || !pathData.value?.currentNodeId) return '无'
+  const current = pathData.value.nodes.find(n => n.id === pathData.value!.currentNodeId)
   return current?.title || '无'
 })
 
@@ -308,7 +311,8 @@ onMounted(async () => {
   initChart()
 })
 
-watch(() => props.subjectId, async () => {
+watch(() => props.subjectId, async (newVal) => {
+  if (!newVal) return
   await loadLearningPath()
   await nextTick()
   if (viewMode.value === 'graph') {
@@ -335,8 +339,9 @@ onBeforeUnmount(() => {
 // 加载学习路径
 const loadLearningPath = async () => {
   try {
-    if (props.subjectId) {
-      const path = await learningAgentAPI.getLearningPath(props.studentId, props.subjectId)
+    const subjectIdNum = Number(props.subjectId)
+    if (subjectIdNum) {
+      const path = await learningAgentAPI.getLearningPath(props.studentId, subjectIdNum)
       pathData.value = path
     } else {
       // 模拟数据
@@ -359,7 +364,7 @@ const initChart = () => {
 const updateChart = () => {
   if (!chartInstance || !pathData.value) return
   
-  const nodes = pathData.value.nodes.map(node => ({
+  const nodes = (pathData.value?.nodes || []).map(node => ({
     name: node.title,
     id: node.id,
     type: node.type,
@@ -372,9 +377,9 @@ const updateChart = () => {
     ]
   }))
   
-  const edges = pathData.value.edges.map(edge => ({
-    source: pathData.value!.nodes.find(n => n.id === edge.source)?.title,
-    target: pathData.value!.nodes.find(n => n.id === edge.target)?.title
+  const edges = (pathData.value.edges || []).map(edge => ({
+    source: pathData.value!.nodes?.find(n => n.id === edge.source)?.title,
+    target: pathData.value!.nodes?.find(n => n.id === edge.target)?.title
   }))
   
   const option: echarts.EChartsOption = {
@@ -505,7 +510,7 @@ const initStatsCharts = () => {
   if (pieChartRef.value) {
     pieChart = echarts.init(pieChartRef.value)
     const typeCount: Record<string, number> = {}
-    pathData.value.nodes.forEach(node => {
+    pathData.value?.nodes?.forEach(node => {
       typeCount[node.type] = (typeCount[node.type] || 0) + 1
     })
     
@@ -541,11 +546,11 @@ const initStatsCharts = () => {
   // 时长分布柱状图
   if (barChartRef.value) {
     barChart = echarts.init(barChartRef.value)
-    const nodeTitles = pathData.value.nodes.map(n => 
+    const nodeTitles = pathData.value?.nodes?.map(n => 
       n.title.length > 6 ? n.title.substring(0, 6) + '...' : n.title
     )
-    const durations = pathData.value.nodes.map(n => n.duration)
-    const statusColors = pathData.value.nodes.map(n => {
+const durations = pathData.value?.nodes?.map(n => n.duration) || []
+  const statusColors = pathData.value?.nodes?.map(n => {
       const colors: Record<string, string> = {
         completed: '#67c23a',
         in_progress: '#409eff',
@@ -592,7 +597,7 @@ const initStatsCharts = () => {
   }
 }
 
-// 生成模拟路径
+// MOCK Module: 生成模拟路径
 const generateMockPath = (): LearningPath => {
   const nodes: PathNode[] = [
     {
@@ -674,7 +679,7 @@ const generateMockPath = (): LearningPath => {
   return {
     id: 'path-001',
     studentId: props.studentId,
-    subjectId: props.subjectId || 1,
+    subjectId: Number(props.subjectId) || 1,
     subjectName: '数学 - 二次函数',
     nodes,
     edges,
@@ -687,8 +692,8 @@ const generateMockPath = (): LearningPath => {
 
 // 获取边路径
 const getEdgePath = (edge: PathEdge) => {
-  const sourceNode = pathData.value?.nodes.find(n => n.id === edge.source)
-  const targetNode = pathData.value?.nodes.find(n => n.id === edge.target)
+  const sourceNode = pathData.value?.nodes?.find(n => n.id === edge.source)
+  const targetNode = pathData.value?.nodes?.find(n => n.id === edge.target)
 
   if (!sourceNode || !targetNode) return ''
 
@@ -786,10 +791,11 @@ const selectNode = (node: PathNode) => {
 const regeneratePath = async () => {
   isGenerating.value = true
   try {
-    if (props.subjectId) {
+    const subjectIdNum = Number(props.subjectId)
+    if (subjectIdNum) {
       const path = await learningAgentAPI.generateLearningPath({
         studentId: props.studentId,
-        subjectId: props.subjectId,
+        subjectId: subjectIdNum,
         currentLevel: 1,
         targetLevel: 3
       })
@@ -850,7 +856,7 @@ const completeNode = async () => {
     }
 
     // 解锁后续节点
-    pathData.value.nodes.forEach(node => {
+    pathData.value?.nodes?.forEach(node => {
       if (node.prerequisites.includes(learningNode.value!.id)) {
         const allPrereqCompleted = node.prerequisites.every(pid =>
           pathData.value!.completedNodes.includes(pid)
@@ -862,7 +868,7 @@ const completeNode = async () => {
     })
 
     // 找到下一个可学习节点
-    const nextNode = pathData.value.nodes.find(n => n.status === 'available')
+    const nextNode = pathData.value?.nodes?.find(n => n.status === 'available')
     if (nextNode) {
       pathData.value.currentNodeId = nextNode.id
     }
