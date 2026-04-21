@@ -220,6 +220,12 @@ const routes: RouteRecordRaw[] = [
         component: () => import('@/views/recruitment/RecruitmentManagement.vue'),
         meta: { title: '招生管理', module: 'recruitment' },
       },
+      {
+        path: '/recruitment/apply',
+        name: 'PublicApply',
+        component: () => import('@/views/recruitment/PublicApply.vue'),
+        meta: { title: '在线报名', module: 'recruitment', public: true },
+      },
 
       // ==================== 系统设置 ====================
       {

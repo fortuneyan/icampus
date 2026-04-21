@@ -77,9 +77,12 @@
               <el-form-item>
                 <el-button type="primary" @click="handleApplicantSearch">搜索</el-button>
                 <el-button @click="handleApplicantReset">重置</el-button>
+                <el-button type="success" @click="handleAddApplicant">人工录入</el-button>
               </el-form-item>
               <el-form-item>
-                <el-button type="success" @click="fetchStats">刷新统计</el-button>
+                <el-button type="warning" @click="handleImport">导入CSV</el-button>
+                <el-button type="info" @click="handleDownloadTemplate">下载模板</el-button>
+                <el-button type="danger" :disabled="!selectedApplicants.length" @click="handleBatchUpdate">批量更新</el-button>
               </el-form-item>
             </el-form>
           </div>
@@ -111,7 +114,8 @@
             </el-col>
           </el-row>
 
-          <el-table :data="applicantTableData" v-loading="applicantLoading" stripe>
+          <el-table :data="applicantTableData" v-loading="applicantLoading" stripe @selection-change="handleSelectionChange">
+            <el-table-column type="selection" width="55" />
             <el-table-column prop="student_name" label="学生姓名" width="120" />
             <el-table-column prop="gender" label="性别" width="80">
               <template #default="{ row }">
@@ -220,6 +224,99 @@
         <el-button type="primary" @click="handleStatusSubmit">确定</el-button>
       </template>
     </el-dialog>
+
+    <el-dialog v-model="importDialogVisible" title="导入报名信息" width="500px">
+      <el-form label-width="100px">
+        <el-form-item label="选择招生计划">
+          <el-select v-model="importPlanId" placeholder="可选" clearable>
+            <el-option v-for="p in planTableData" :key="p.id" :label="p.name" :value="p.id" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="上传CSV文件">
+          <el-upload ref="uploadRef" :auto-upload="false" :limit="1" accept=".csv" :on-change="handleFileChange">
+            <el-button type="primary">选择文件</el-button>
+            <template #tip>
+              <div class="el-upload__tip">仅支持CSV格式文件</div>
+            </template>
+          </el-upload>
+        </el-form-item>
+        <el-alert v-if="importResult" :title="`导入完成: 成功${importResult.success_count}条, 失败${importResult.fail_count}条`" :type="importResult.fail_count > 0 ? 'warning' : 'success'" />
+      </el-form>
+      <template #footer>
+        <el-button @click="importDialogVisible = false">取消</el-button>
+        <el-button type="primary" :loading="importing" @click="handleImportSubmit">导入</el-button>
+      </template>
+    </el-dialog>
+
+    <el-dialog v-model="applicantDialogVisible" :title="applicantDialogTitle" width="600px">
+      <el-form ref="applicantFormRef" :model="applicantFormData" :rules="applicantFormRules" label-width="100px">
+        <el-form-item label="学生姓名" prop="student_name">
+          <el-input v-model="applicantFormData.student_name" placeholder="请输入学生姓名" />
+        </el-form-item>
+        <el-form-item label="性别" prop="gender">
+          <el-radio-group v-model="applicantFormData.gender">
+            <el-radio value="male">男</el-radio>
+            <el-radio value="female">女</el-radio>
+          </el-radio-group>
+        </el-form-item>
+        <el-form-item label="出生日期">
+          <el-date-picker v-model="applicantFormData.birth_date" type="date" placeholder="选择日期" value-format="YYYY-MM-DD" style="width: 100%" />
+        </el-form-item>
+        <el-form-item label="联系电话" prop="phone">
+          <el-input v-model="applicantFormData.phone" placeholder="请输入联系电话" />
+        </el-form-item>
+        <el-form-item label="监护人">
+          <el-input v-model="applicantFormData.guardian_name" placeholder="请输入监护人姓名" />
+        </el-form-item>
+        <el-form-item label="监护人电话">
+          <el-input v-model="applicantFormData.guardian_phone" placeholder="请输入监护人电话" />
+        </el-form-item>
+        <el-form-item label="身份证号">
+          <el-input v-model="applicantFormData.id_card" placeholder="请输入身份证号" />
+        </el-form-item>
+        <el-form-item label="家庭地址">
+          <el-input v-model="applicantFormData.address" placeholder="请输入家庭住址" />
+        </el-form-item>
+        <el-form-item label="就读学校">
+          <el-input v-model="applicantFormData.current_school" placeholder="请输入当前就读学校" />
+        </el-form-item>
+        <el-form-item label="来源">
+          <el-select v-model="applicantFormData.source" placeholder="请选择来源">
+            <el-option label="线上报名" value="online" />
+            <el-option label="线下报名" value="offline" />
+            <el-option label="转介绍" value="referral" />
+            <el-option label="其他" value="other" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="备注">
+          <el-input v-model="applicantFormData.remarks" type="textarea" :rows="2" placeholder="请输入备注" />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="applicantDialogVisible = false">取消</el-button>
+        <el-button type="primary" @click="handleApplicantSubmit">确定</el-button>
+      </template>
+    </el-dialog>
+
+    <el-dialog v-model="batchDialogVisible" title="批量更新" width="400px">
+      <el-form label-width="80px">
+        <el-form-item label="更新状态">
+          <el-select v-model="batchUpdateData.status" placeholder="不更新" clearable>
+            <el-option label="待联系" value="pending" />
+            <el-option label="已联系" value="contacted" />
+            <el-option label="已面试" value="interviewed" />
+            <el-option label="已录取" value="admitted" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="录取批次">
+          <el-input v-model="batchUpdateData.enrollment_batch" placeholder="不更新" />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="batchDialogVisible = false">取消</el-button>
+        <el-button type="primary" @click="handleBatchSubmit">确定更新{{ selectedApplicants.length }}条</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -232,6 +329,9 @@ import {
   updateRecruitmentPlan,
   getApplicants,
   updateApplicantStatus,
+  batchUpdateApplicants,
+  importApplicants,
+  downloadTemplate,
   addFollowUp,
   getFollowUps,
   getRecruitmentStats
@@ -289,6 +389,40 @@ const followUpFormRules = {
 const statusDialogVisible = ref(false)
 const newStatus = ref('')
 const currentStatusApplicantId = ref('')
+
+const selectedApplicants = ref<any[]>([])
+const importDialogVisible = ref(false)
+const importPlanId = ref('')
+const importFile = ref<File | null>(null)
+const importResult = ref<any>(null)
+const importing = ref(false)
+const batchDialogVisible = ref(false)
+const batchUpdateData = reactive({
+  status: '',
+  enrollment_batch: ''
+})
+
+const applicantDialogVisible = ref(false)
+const applicantDialogTitle = ref('')
+const applicantFormRef = ref()
+const applicantFormData = reactive({
+  id: '',
+  student_name: '',
+  gender: '',
+  birth_date: '',
+  phone: '',
+  guardian_name: '',
+  guardian_phone: '',
+  id_card: '',
+  address: '',
+  current_school: '',
+  source: 'offline',
+  remarks: ''
+})
+const applicantFormRules = {
+  student_name: [{ required: true, message: '请输入学生姓名', trigger: 'blur' }],
+  phone: [{ required: true, message: '请输入联系电话', trigger: 'blur' }]
+}
 
 const formatDate = (date: string) => {
   if (!date) return '-'
@@ -465,6 +599,117 @@ const handleStatusSubmit = async () => {
   } catch (e) {
     ElMessage.error('更新失败')
   }
+}
+
+const handleSelectionChange = (selection: any[]) => {
+  selectedApplicants.value = selection
+}
+
+const handleImport = () => {
+  importFile.value = null
+  importResult.value = null
+  importDialogVisible.value = true
+}
+
+const handleFileChange = (file: any) => {
+  importFile.value = file.raw
+}
+
+const handleImportSubmit = async () => {
+  if (!importFile.value) {
+    ElMessage.warning('请选择CSV文件')
+    return
+  }
+  importing.value = true
+  try {
+    const res = await importApplicants(importFile.value, importPlanId.value || undefined)
+    importResult.value = res.data
+    ElMessage.success(`导入完成: 成功${res.data.success_count}条, 失败${res.data.fail_count}条`)
+    fetchApplicants()
+    fetchStats()
+  } catch (e: any) {
+    ElMessage.error(e.message || '导入失败')
+  } finally {
+    importing.value = false
+  }
+}
+
+const handleDownloadTemplate = async () => {
+  try {
+    const res = await downloadTemplate()
+    const url = window.URL.createObjectURL(new Blob([res as any]))
+    const link = document.createElement('a')
+    link.href = url
+    link.download = '报名信息导入模板.csv'
+    link.click()
+    window.URL.revokeObjectURL(url)
+  } catch (e) {
+    ElMessage.error('下载模板失败')
+  }
+}
+
+const handleBatchUpdate = () => {
+  if (!selectedApplicants.value.length) {
+    ElMessage.warning('请先选择要更新的记录')
+    return
+  }
+  batchUpdateData.status = ''
+  batchUpdateData.enrollment_batch = ''
+  batchDialogVisible.value = true
+}
+
+const handleBatchSubmit = async () => {
+  try {
+    await batchUpdateApplicants({
+      ids: selectedApplicants.value.map((a: any) => a.id),
+      status: batchUpdateData.status || undefined,
+      enrollment_batch: batchUpdateData.enrollment_batch || undefined
+    })
+    ElMessage.success(`成功更新${selectedApplicants.value.length}条记录`)
+    batchDialogVisible.value = false
+    fetchApplicants()
+    fetchStats()
+  } catch (e) {
+    ElMessage.error('批量更新失败')
+  }
+}
+
+const handleAddApplicant = () => {
+  applicantDialogTitle.value = '人工录入报名信息'
+  applicantFormData.id = ''
+  applicantFormData.student_name = ''
+  applicantFormData.gender = ''
+  applicantFormData.birth_date = ''
+  applicantFormData.phone = ''
+  applicantFormData.guardian_name = ''
+  applicantFormData.guardian_phone = ''
+  applicantFormData.id_card = ''
+  applicantFormData.address = ''
+  applicantFormData.current_school = ''
+  applicantFormData.source = 'offline'
+  applicantFormData.remarks = ''
+  applicantDialogVisible.value = true
+}
+
+const handleApplicantSubmit = async () => {
+  if (!applicantFormRef.value) return
+  await applicantFormRef.value.validate(async (valid) => {
+    if (valid) {
+      try {
+        if (applicantFormData.id) {
+          ElMessage.success('更新成功')
+        } else {
+          await createApplicant(applicantFormData as any)
+          ElMessage.success('录入成功')
+        }
+        applicantDialogVisible.value = false
+        fetchApplicants()
+        fetchStats()
+      } catch (e: any) {
+        ElMessage.error(e.message || '操作失败')
+      }
+    }
+  })
 }
 
 onMounted(() => {
