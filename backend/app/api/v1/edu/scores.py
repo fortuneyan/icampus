@@ -7,11 +7,15 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, or_
+from sqlalchemy.orm import selectinload, joinedload
+from datetime import datetime
 
 from app.core.database import get_db
 from app.core.security import get_current_user
 from app.models.user import User
 from app.models.score import Score
+from app.models.student import Student
+from app.models.class_model import Class
 from app.schemas.response import success, page_response
 
 router = APIRouter()
@@ -40,7 +44,9 @@ async def get_scores(
     current_user: User = Depends(get_current_user),
 ):
     """获取成绩列表"""
-    query = select(Score).order_by(Score.recorded_at.desc())
+    query = select(Score).options(
+        joinedload(Score.student).joinedload(Student.class_obj)
+    ).order_by(Score.recorded_at.desc())
 
     if student_id:
         uid = parse_uuid(student_id)
@@ -70,6 +76,9 @@ async def get_scores(
         {
             "id": str(s.id),
             "student_id": str(s.student_id),
+            "student_name": s.student.name if s.student else None,
+            "class_id": str(s.student.class_obj.id) if s.student and s.student.class_obj else None,
+            "class_name": s.student.class_obj.name if s.student and s.student.class_obj else None,
             "course_id": str(s.course_id),
             "exam_type": s.exam_type,
             "semester": s.semester,
@@ -162,6 +171,13 @@ async def create_score(
     current_user: User = Depends(get_current_user),
 ):
     """创建成绩"""
+    exam_date = data.get("exam_date")
+    if exam_date and isinstance(exam_date, str):
+        try:
+            exam_date = datetime.strptime(exam_date, "%Y-%m-%d")
+        except ValueError:
+            exam_date = None
+
     score_data = {
         "student_id": data.get("student_id"),
         "course_id": data.get("course_id"),
@@ -171,7 +187,7 @@ async def create_score(
         "full_score": data.get("full_score") or 100,
         "grade_letter": data.get("grade_letter"),
         "rank": data.get("rank"),
-        "exam_date": data.get("exam_date"),
+        "exam_date": exam_date,
         "remarks": data.get("remarks") or data.get("comment"),
     }
     score = Score(**score_data)
@@ -212,7 +228,13 @@ async def update_score(
     if "rank" in data:
         score.rank = data["rank"]
     if "exam_date" in data:
-        score.exam_date = data["exam_date"]
+        exam_date = data["exam_date"]
+        if exam_date and isinstance(exam_date, str):
+            try:
+                exam_date = datetime.strptime(exam_date, "%Y-%m-%d")
+            except ValueError:
+                exam_date = None
+        score.exam_date = exam_date
     if "remarks" in data:
         score.remarks = data["remarks"]
     if "comment" in data:

@@ -10,6 +10,7 @@ from sqlalchemy import (
     UniqueConstraint,
 )
 from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.orm import relationship
 
 from app.core.database import Base
 
@@ -36,3 +37,5 @@ class Score(Base):
     recorded_by = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
     recorded_at = Column(DateTime, default=datetime.now)
     updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)
+
+    student = relationship("Student", foreign_keys=[student_id])

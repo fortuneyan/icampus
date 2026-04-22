@@ -33,11 +33,8 @@
       </div>
 
       <el-table :data="tableData" v-loading="loading" stripe>
-        <el-table-column prop="student_id" label="学生" width="100">
-          <template #default="{ row }">
-            {{ getStudentName(row.student_id) }}
-          </template>
-        </el-table-column>
+        <el-table-column prop="student_name" label="学生" width="100" />
+        <el-table-column prop="class_name" label="班级" width="120" />
         <el-table-column prop="course_id" label="课程" width="120">
           <template #default="{ row }">
             {{ getCourseName(row.course_id) }}
@@ -212,7 +209,13 @@ const fetchCourses = async (grade_id?: string) => {
 const fetchGrades = async () => {
   try {
     const res = await getGradeOptions()
-    gradeOptions.value = res.data || []
+    const grades = res.data || []
+    gradeOptions.value = grades.map((g: any) => {
+      if (g.grade_level && g.grade_level >= 1 && g.grade_level <= 12 && gradeNames.value[g.grade_level - 1]) {
+        return { ...g, label: gradeNames.value[g.grade_level - 1] }
+      }
+      return { ...g, label: g.label }
+    })
   } catch (e) { console.error(e) }
 }
 
@@ -266,6 +269,7 @@ const handleAdd = async () => {
 
 const handleEdit = async (row: any) => {
   Object.assign(formData, { ...row })
+  await fetchGrades()
   if (row.student_id) {
     await loadEditOptions(row.student_id)
   }
@@ -276,26 +280,33 @@ const handleEdit = async (row: any) => {
 const loadEditOptions = async (studentId: string) => {
   try {
     const res = await getStudentDetail(studentId)
-    const gradeId = res.data?.data?.grade_id
-    const classId = res.data?.data?.class_id
+    const gradeId = res.data?.grade_id || res.data?.data?.grade_id
+    const classId = res.data?.class_id || res.data?.data?.class_id
+
     if (gradeId) {
       formData.grade_id = gradeId
       await Promise.all([
         fetchClasses(gradeId),
         fetchCourses(gradeId)
       ])
+    } else {
+      await Promise.all([fetchClasses(), fetchCourses()])
     }
+
     if (classId) {
       formData.class_id = classId
       await fetchStudentsByClass(classId)
     }
-  } catch (e) { console.error(e) }
+  } catch (e) {
+    console.error(e)
+    await Promise.all([fetchGrades(), fetchClasses(), fetchCourses()])
+  }
 }
 
 const handleSubmit = async () => {
   if (!formRef.value) return
   await formRef.value.validate()
-  const submitData = {
+  const submitData: any = {
     student_id: formData.student_id,
     course_id: formData.course_id,
     score: formData.score,
@@ -303,6 +314,12 @@ const handleSubmit = async () => {
     semester: formData.semester,
     rank: formData.rank,
     remarks: formData.comment,
+  }
+  if (formData.exam_date) {
+    submitData.exam_date = formData.exam_date
+  }
+  if (formData.full_score !== undefined) {
+    submitData.full_score = formData.full_score
   }
   try {
     if (formData.id) { await updateScore(formData.id, submitData); ElMessage.success('更新成功') }
