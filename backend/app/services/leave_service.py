@@ -23,39 +23,54 @@ class LeaveService(BaseService[LeaveRequest]):
         if request:
             request.status = status
             request.approver_id = approver_id
-            request.approved_at = datetime.now()
+            request.approved_at = datetime.utcnow()
             request.approve_comment = comment
             await self.db.commit()
             await self.db.refresh(request)
         return request
 
-    async def get_student_leaves(self, student_id: UUID) -> dict:
-        query = (
-            select(LeaveRequest)
-            .where(LeaveRequest.student_id == student_id)
-            .order_by(LeaveRequest.created_at.desc())
-        )
+    async def get_student_leaves(self, student_id: UUID, status: Optional[str] = None) -> dict:
+        query = select(LeaveRequest).where(LeaveRequest.student_id == student_id)
+        if status:
+            query = query.where(LeaveRequest.status == status)
+        query = query.order_by(LeaveRequest.created_at.desc())
         result = await self.db.execute(query)
         leaves = result.scalars().all()
-        
+
+        return {
+            "items": leaves,
+            "total": len(leaves)
+        }
+
+    async def get_user_leaves(self, user_id: UUID, status: Optional[str] = None) -> dict:
+        query = select(LeaveRequest).where(LeaveRequest.user_id == user_id)
+        if status:
+            query = query.where(LeaveRequest.status == status)
+        query = query.order_by(LeaveRequest.created_at.desc())
+        result = await self.db.execute(query)
+        leaves = result.scalars().all()
+
         return {
             "items": leaves,
             "total": len(leaves)
         }
 
     async def get_pending_leaves(self, page: int = 1, page_size: int = 20) -> dict:
+        return await self.get_leaves_by_status("pending", page, page_size)
+
+    async def get_leaves_by_status(self, status: str, page: int = 1, page_size: int = 20) -> dict:
         query = (
             select(LeaveRequest)
-            .where(LeaveRequest.status == "pending")
+            .where(LeaveRequest.status == status)
             .order_by(LeaveRequest.created_at.desc())
         )
         result = await self.db.execute(query)
         leaves = result.scalars().all()
-        
+
         total = len(leaves)
         offset = (page - 1) * page_size
         items = leaves[offset:offset + page_size]
-        
+
         return {
             "items": items,
             "total": total,

@@ -95,17 +95,46 @@ async def check_in(
 
 @router.get("/records", response_model=dict)
 async def get_records(
+    attendance_type: Optional[str] = Query(None, description="类型筛选: normal/late/absent/leave"),
+    date: Optional[str] = Query(None, description="日期筛选"),
     page: int = Query(1),
     page_size: int = Query(20),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """获取考勤记录列表"""
+    """获取考勤记录列表（含请假记录）"""
+    from app.services.leave_service import LeaveService
+    from sqlalchemy import select
+    from datetime import timedelta
+    leave_service = LeaveService(db)
+
+    leave_items = []
+
+    leave_result = await leave_service.get_user_leaves(current_user.id, status="approved")
+    for l in leave_result.get("items", []):
+        if l and l.start_date and l.end_date:
+            start = l.start_date.date() if hasattr(l.start_date, 'date') else l.start_date
+            end = l.end_date.date() if hasattr(l.end_date, 'date') else l.end_date
+            current = start
+            while current <= end:
+                leave_items.append({
+                    "id": str(l.id),
+                    "user_name": current_user.real_name or current_user.username or "未知",
+                    "date": str(current),
+                    "attendance_type": "leave",
+                    "leave_type": l.leave_type,
+                    "status": "leave",
+                    "reason": l.reason,
+                    "created_at": str(l.created_at) if l.created_at else None,
+                })
+                current = current + timedelta(days=1)
+
     service = RecordService(db)
     result = await service.get_user_records(current_user.id, page, page_size)
-    
-    items = [
-        {
+
+    record_items = []
+    for r in result["items"]:
+        record_items.append({
             "id": str(r.id),
             "user_name": current_user.real_name or current_user.username or "未知",
             "date": r.check_in_time.date().isoformat() if r.check_in_time else None,
@@ -115,10 +144,20 @@ async def get_records(
             "location": r.check_in_location,
             "status": r.status or "normal",
             "created_at": r.created_at.isoformat() if r.created_at else None,
-        }
-        for r in result["items"]
-    ]
-    return page_response(items, result["total"], page, page_size)
+        })
+
+    all_items = leave_items + record_items
+
+    if attendance_type:
+        all_items = [item for item in all_items if item.get("attendance_type") == attendance_type]
+    if date:
+        all_items = [item for item in all_items if item.get("date") == date]
+
+    total = len(all_items)
+    offset = (page - 1) * page_size
+    items = all_items[offset:offset + page_size]
+
+    return page_response(items, total, page, page_size)
 
 
 @router.get("/statistics", response_model=dict)

@@ -15,6 +15,15 @@ from app.services.leave_service import LeaveService, LeaveQuotaService
 router = APIRouter()
 
 
+def to_naive_datetime(dt: Optional[datetime]) -> Optional[datetime]:
+    """将带时区的 datetime 转换为不带时区的 datetime"""
+    if dt is None:
+        return None
+    if dt.tzinfo is not None:
+        return dt.replace(tzinfo=None)
+    return dt
+
+
 @router.get("", response_model=dict)
 async def get_leave_requests(
     student_id: Optional[str] = Query(None),
@@ -25,9 +34,9 @@ async def get_leave_requests(
     current_user: User = Depends(get_current_user),
 ):
     service = LeaveService(db)
-    
+
     if student_id:
-        result = await service.get_student_leaves(UUID(student_id))
+        result = await service.get_student_leaves(UUID(student_id), status=status)
         items = [
             {
                 "id": str(l.id),
@@ -39,13 +48,14 @@ async def get_leave_requests(
                 "status": l.status,
                 "approver_id": str(l.approver_id) if l.approver_id else None,
                 "approved_at": l.approved_at.isoformat() if l.approved_at else None,
+                "approve_comment": l.approve_comment,
                 "created_at": l.created_at.isoformat(),
             }
             for l in result["items"]
         ]
         return page_response(items, result["total"], page, page_size)
     else:
-        result = await service.get_pending_leaves(page, page_size)
+        result = await service.get_leaves_by_status(status or "pending", page, page_size)
         items = [
             {
                 "id": str(l.id),
@@ -55,7 +65,7 @@ async def get_leave_requests(
                 "end_date": l.end_date.isoformat(),
                 "reason": l.reason,
                 "status": l.status,
-                "days": l.days,
+                "days": getattr(l, 'days', 0),
                 "created_at": l.created_at.isoformat(),
             }
             for l in result["items"]
@@ -79,8 +89,12 @@ async def create_leave_request(
     ):
         from app.core.exceptions import ConflictException
         raise ConflictException("请假天数超出可用额度")
-    
-    leave = await service.create_leave_request(data.model_dump())
+
+    leave_data = data.model_dump()
+    leave_data["start_date"] = to_naive_datetime(leave_data.get("start_date"))
+    leave_data["end_date"] = to_naive_datetime(leave_data.get("end_date"))
+
+    leave = await service.create_leave_request(leave_data)
     return success({"id": str(leave.id)}, "请假申请已提交")
 
 
