@@ -48,6 +48,7 @@ from app.models.scholarship import Scholarship, ScholarshipApplication, GrantRec
 from app.models.notice import Notice, NoticeRead
 from app.models.homework import Homework, HomeworkSubmission, WrongQuestion, HomeworkFeedback, HomeworkNotification
 from app.models.enrollment_change import EnrollmentChange
+from app.models.grade_course import GradeCourseSettings, CourseSelection, CourseType, SelectionTargetType
 
 __all__ = [
     "User",
@@ -115,4 +116,8 @@ __all__ = [
     "Notice",
     "NoticeRead",
     "EnrollmentChange",
+    "GradeCourseSettings",
+    "CourseSelection",
+    "CourseType",
+    "SelectionTargetType",
 ]

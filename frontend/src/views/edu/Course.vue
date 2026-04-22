@@ -24,21 +24,31 @@
       <el-table :data="tableData" v-loading="loading" stripe>
         <el-table-column prop="name" label="课程名称" width="150" />
         <el-table-column prop="code" label="课程代码" width="100" />
-        <el-table-column prop="category" label="类型" width="100">
+        <el-table-column prop="course_type" label="类型" width="100">
           <template #default="{ row }">
-            <el-tag :type="row.category === 'required' ? 'danger' : 'success'">
-              {{ row.category === 'required' ? '必修' : row.category === 'elective' ? '选修' : '校本' }}
+            <el-tag :type="row.course_type === 'REQUIRED' ? 'danger' : 'success'">
+              {{ row.course_type === 'REQUIRED' ? '必修' : '选修' }}
             </el-tag>
           </template>
         </el-table-column>
         <el-table-column prop="credits" label="学分" width="80" />
         <el-table-column prop="hours" label="课时" width="80" />
-        <el-table-column prop="teacher_id" label="授课教师" width="120">
+        <el-table-column label="授课教师" width="150">
           <template #default="{ row }">
-            {{ getTeacherName(row.teacher_id) }}
+            {{ getTeacherName(row.teacher_ids) }}
           </template>
         </el-table-column>
         <el-table-column prop="semester" label="适用学期" width="120" />
+        <el-table-column label="适用年级" width="120">
+          <template #default="{ row }">
+            {{ getGradeLevelsText(row.grade_levels) }}
+          </template>
+        </el-table-column>
+        <el-table-column label="前置课程" width="150">
+          <template #default="{ row }">
+            {{ getPrerequisiteNames(row.prerequisite_course_ids) }}
+          </template>
+        </el-table-column>
         <el-table-column prop="status" label="状态" width="80">
           <template #default="{ row }">
             <el-tag :type="row.status === 'active' ? 'success' : 'info'">
@@ -89,9 +99,23 @@
         <el-form-item label="课时" prop="hours">
           <el-input-number v-model="formData.hours" :min="0" :max="200" />
         </el-form-item>
-        <el-form-item label="授课教师" prop="teacher_id">
-          <el-select v-model="formData.teacher_id" clearable placeholder="请选择">
+        <el-form-item label="授课教师" prop="teacher_ids">
+          <el-select v-model="formData.teacher_ids" multiple clearable placeholder="请选择教师">
             <el-option v-for="t in teacherOptions" :key="t.value" :label="t.label" :value="t.value" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="适用年级" prop="grade_levels">
+          <el-select v-model="formData.grade_levels" multiple clearable placeholder="请选择适用年级">
+            <el-option v-for="g in gradeLevelOptions" :key="g.value" :label="g.label" :value="g.value" />
+          </el-select>
+        </el-form-item>
+        <el-select v-model="formData.course_type" placeholder="请选择">
+            <el-option label="必修" value="REQUIRED" />
+            <el-option label="选修" value="ELECTIVE" />
+          </el-select>
+        <el-form-item label="前置课程" prop="prerequisite_course_ids">
+          <el-select v-model="formData.prerequisite_course_ids" multiple clearable placeholder="请选择前置课程">
+            <el-option v-for="c in courseOptions" :key="c.value" :label="c.label" :value="c.value" />
           </el-select>
         </el-form-item>
         <el-form-item label="适用学期" prop="semester">
@@ -120,7 +144,8 @@ import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import type { FormInstance } from 'element-plus'
 import { getCourseList, createCourse, updateCourse, deleteCourse } from '@/api/edu/course'
-import { getTeacherOptions } from '@/api/edu/grade'
+import { getTeacherOptions, getGradeOptions } from '@/api/edu/grade'
+import { getConfig } from '@/api/settings'
 
 const loading = ref(false)
 const tableData = ref([])
@@ -128,11 +153,18 @@ const searchForm = reactive({ name: '', category: '' })
 const pagination = reactive({ page: 1, pageSize: 20, total: 0 })
 
 const teacherOptions = ref<any[]>([])
+const gradeLevelOptions = ref<any[]>([])
+const courseOptions = ref<any[]>([])
+const gradeNames = ref<string[]>([])
 
 const dialogVisible = ref(false)
 const dialogTitle = ref('')
 const formRef = ref<FormInstance>()
-const formData = reactive<any>({ id: '', name: '', code: '', category: 'required', credits: 2, hours: 32, teacher_id: '', semester: '', status: 'active', description: '' })
+const formData = reactive<any>({
+  id: '', name: '', code: '', category: 'required', credits: 2, hours: 32,
+  teacher_ids: [] as string[], grade_levels: [] as number[], course_type: 'ELECTIVE',
+  prerequisite_course_ids: [] as string[], semester: '', status: 'active', description: ''
+})
 
 const formRules = {
   name: [{ required: true, message: '请输入课程名称', trigger: 'blur' }],
@@ -157,13 +189,60 @@ const fetchTeachers = async () => {
   } catch (e) { console.error(e) }
 }
 
-const getTeacherName = (id: string) => teacherOptions.value.find(t => t.value === id)?.label || ''
+const fetchCourses = async () => {
+  try {
+    const res = await getCourseList({ page: 1, page_size: 1000 })
+    courseOptions.value = (res.data.items || []).map((c: any) => ({ value: c.id, label: c.name }))
+  } catch (e) { console.error(e) }
+}
+
+const fetchGradeLevels = async () => {
+  try {
+    const res = await getGradeOptions()
+    const grades = res.data || []
+    gradeLevelOptions.value = grades.map((g: any) => ({
+      value: g.grade_level,
+      label: gradeNames.value[g.grade_level - 1] || `年级${g.grade_level}`
+    }))
+  } catch (e) { console.error(e) }
+}
+
+const getTeacherName = (teacherIds: string[]) => {
+  if (!teacherIds || teacherIds.length === 0) return '-'
+  return teacherIds.map((id: string) => teacherOptions.value.find(t => t.value === id)?.label || '').join(', ')
+}
+
+const getGradeLevelsText = (levels: number[]) => {
+  if (!levels || levels.length === 0) return '-'
+  return levels.map((l: number) => gradeNames.value[l - 1] || `年级${l}`).join(', ')
+}
+
+const getPrerequisiteNames = (ids: string[]) => {
+  if (!ids || ids.length === 0) return '-'
+  return ids.map((id: string) => courseOptions.value.find(c => c.value === id)?.label || '').join(', ')
+}
+
+const fetchGradeNames = async () => {
+  try {
+    const res = await getConfig('grade_names')
+    if (res.code === 200 && res.data) {
+      const setting = Array.isArray(res.data) ? res.data.find((s: any) => s.setting_key === 'grade_names') : res.data
+      if (setting?.setting_value) {
+        gradeNames.value = setting.setting_value.split(',')
+      }
+    }
+  } catch (e) { console.error(e) }
+}
 
 const handleSearch = () => { pagination.page = 1; fetchData() }
 const handleReset = () => { searchForm.name = ''; searchForm.category = ''; handleSearch() }
 
 const handleAdd = () => {
-  Object.assign(formData, { id: '', name: '', code: '', category: 'required', credits: 2, hours: 32, teacher_id: '', semester: '', status: 'active', description: '' })
+  Object.assign(formData, {
+    id: '', name: '', code: '', category: 'required', credits: 2, hours: 32,
+    teacher_ids: [], grade_levels: [], course_type: 'ELECTIVE', prerequisite_course_ids: [],
+    semester: '', status: 'active', description: ''
+  })
   dialogTitle.value = '新增课程'
   dialogVisible.value = true
 }
@@ -194,7 +273,13 @@ const handleDelete = async (row: any) => {
   } catch (e: any) { if (e !== 'cancel') ElMessage.error(e.message || '删除失败') }
 }
 
-onMounted(() => { fetchTeachers(); fetchData() })
+onMounted(async () => {
+  await fetchGradeNames()
+  fetchTeachers()
+  fetchCourses()
+  fetchGradeLevels()
+  fetchData()
+})
 </script>
 
 <style scoped lang="scss">

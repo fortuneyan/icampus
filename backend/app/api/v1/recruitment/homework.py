@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 from datetime import datetime
+from zoneinfo import ZoneInfo
 
 from app.core.database import get_db
 from app.core.security import get_current_user
@@ -18,6 +19,15 @@ from app.schemas.homework import (
 from app.schemas.response import success, page_response
 
 router = APIRouter()
+
+
+def to_naive_datetime(dt: Optional[datetime]) -> Optional[datetime]:
+    """将带时区的 datetime 转换为不带时区的 datetime"""
+    if dt is None:
+        return None
+    if dt.tzinfo is not None:
+        return dt.replace(tzinfo=None)
+    return dt
 
 
 @router.get("/homeworks", response_model=dict)
@@ -75,9 +85,10 @@ async def create_homework(
         class_ids=data.class_ids if data.class_ids else None,
         homework_type=data.homework_type,
         total_score=data.total_score,
-        submit_start=data.submit_start,
-        submit_end=data.submit_end,
+        submit_start=to_naive_datetime(data.submit_start),
+        submit_end=to_naive_datetime(data.submit_end),
         notify_enabled=data.notify_enabled,
+        status="draft",
     )
     db.add(homework)
     await db.commit()
@@ -100,6 +111,10 @@ async def update_homework(
         raise NotFoundException("作业不存在")
     
     update_data = data.model_dump(exclude_unset=True)
+    if 'submit_start' in update_data:
+        update_data['submit_start'] = to_naive_datetime(update_data['submit_start'])
+    if 'submit_end' in update_data:
+        update_data['submit_end'] = to_naive_datetime(update_data['submit_end'])
     for key, value in update_data.items():
         setattr(homework, key, value)
     

@@ -5,6 +5,7 @@
 from typing import Optional
 from uuid import UUID
 from fastapi import APIRouter, Depends, Query, status
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
@@ -116,6 +117,54 @@ async def create_user(
     user = await user_service.create_user(data)
 
     return success({"id": str(user.id), "username": user.username}, "用户创建成功")
+
+
+@router.get("/{user_id}/profile", response_model=dict)
+async def get_user_profile(
+    user_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """获取用户扩展信息"""
+    from app.models.teacher_profile import TeacherProfile
+    
+    result = await db.execute(
+        select(TeacherProfile).where(TeacherProfile.user_id == user_id)
+    )
+    profile = result.scalar_one_or_none()
+    
+    if not profile:
+        return success(None)
+    
+    import json
+    profile_data = {}
+    try:
+        profile_data = json.loads(profile.profile_json) if profile.profile_json else {}
+    except:
+        pass
+    
+    return success(
+        {
+            "id": str(profile.id),
+            "user_id": str(profile.user_id),
+            "employee_no": profile.employee_no,
+            "hire_date": profile.hire_date.isoformat() if profile.hire_date else None,
+            "position": profile.position,
+            "title": profile.title,
+            "employment_type": profile.employment_type,
+            "subject": profile.subject,
+            "teaching_grade": profile.teaching_grade,
+            "teacher_certificate": profile.teacher_certificate,
+            "education": profile.education,
+            "degree": profile.degree,
+            "emergency_contact": profile.emergency_contact,
+            "emergency_phone": profile.emergency_phone,
+            "courses": profile_data.get("courses", []),
+            "grades": profile_data.get("grades", []),
+            "classes": profile_data.get("classes", []),
+            "remarks": profile.remarks,
+        }
+    )
 
 
 @router.put("/{user_id}", response_model=dict)

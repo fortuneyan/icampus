@@ -15,6 +15,11 @@
       </div>
 
       <el-table :data="tableData" v-loading="loading" stripe>
+        <el-table-column label="名称" width="120">
+          <template #default="{ row }">
+            {{ getGradeName(row.grade_level) }}
+          </template>
+        </el-table-column>
         <el-table-column prop="name" label="年级名称" width="150" />
         <el-table-column prop="code" label="年级代码" width="120" />
         <el-table-column prop="academic_year" label="学年" width="120" />
@@ -56,6 +61,11 @@
 
     <el-dialog v-model="dialogVisible" :title="dialogTitle" width="600px">
       <el-form ref="formRef" :model="formData" :rules="formRules" label-width="100px">
+        <el-form-item label="年级" prop="grade_level">
+          <el-select v-model="formData.grade_level" placeholder="请选择">
+            <el-option v-for="name in gradeNames" :key="gradeNames.indexOf(name)" :label="name" :value="gradeNames.indexOf(name) + 1" />
+          </el-select>
+        </el-form-item>
         <el-form-item label="年级名称" prop="name">
           <el-input v-model="formData.name" />
         </el-form-item>
@@ -92,7 +102,8 @@
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import type { FormInstance } from 'element-plus'
-import { getGradeList, createGrade, updateGrade, deleteGrade, getGradeOptions } from '@/api/edu/grade'
+import { getGradeList, createGrade, updateGrade, deleteGrade, getGradeOptions, getTeacherOptions } from '@/api/edu/grade'
+import { getConfig } from '@/api/settings'
 
 const loading = ref(false)
 const tableData = ref([])
@@ -100,13 +111,15 @@ const searchForm = reactive({ name: '' })
 const pagination = reactive({ page: 1, pageSize: 20, total: 0 })
 
 const teacherOptions = ref<any[]>([])
+const gradeNames = ref<string[]>([])
 
 const dialogVisible = ref(false)
 const dialogTitle = ref('')
 const formRef = ref<FormInstance>()
-const formData = reactive<any>({ id: '', name: '', code: '', academic_year: '', head_teacher_id: '', status: 'active', description: '' })
+const formData = reactive<any>({ id: '', grade_level: '', name: '', code: '', academic_year: '', head_teacher_id: '', status: 'active', description: '' })
 
 const formRules = {
+  grade_level: [{ required: true, message: '请选择年级', trigger: 'change' }],
   name: [{ required: true, message: '请输入年级名称', trigger: 'blur' }],
   code: [{ required: true, message: '请输入年级代码', trigger: 'blur' }],
   academic_year: [{ required: true, message: '请输入学年', trigger: 'blur' }]
@@ -124,18 +137,35 @@ const fetchData = async () => {
 
 const fetchTeachers = async () => {
   try {
-    const res = await getGradeOptions()
+    const res = await getTeacherOptions()
     teacherOptions.value = res.data || []
   } catch (e) { console.error(e) }
 }
 
 const getTeacherName = (id: string) => teacherOptions.value.find(t => t.value === id)?.label || ''
 
+const getGradeName = (gradeLevel: number) => {
+  if (!gradeLevel || gradeLevel < 1) return '-'
+  return gradeNames.value[gradeLevel - 1] || `年级${gradeLevel}`
+}
+
+const fetchGradeNames = async () => {
+  try {
+    const res = await getConfig('grade_names')
+    if (res.code === 200 && res.data) {
+      const setting = Array.isArray(res.data) ? res.data.find((s: any) => s.setting_key === 'grade_names') : res.data
+      if (setting?.setting_value) {
+        gradeNames.value = setting.setting_value.split(',')
+      }
+    }
+  } catch (e) { console.error(e) }
+}
+
 const handleSearch = () => { pagination.page = 1; fetchData() }
 const handleReset = () => { searchForm.name = ''; handleSearch() }
 
 const handleAdd = () => {
-  Object.assign(formData, { id: '', name: '', code: '', academic_year: '', head_teacher_id: '', status: 'active', description: '' })
+  Object.assign(formData, { id: '', grade_level: '', name: '', code: '', academic_year: '', head_teacher_id: '', status: 'active', description: '' })
   dialogTitle.value = '新增年级'
   dialogVisible.value = true
 }
@@ -150,8 +180,12 @@ const handleSubmit = async () => {
   if (!formRef.value) return
   await formRef.value.validate()
   try {
-    if (formData.id) { await updateGrade(formData.id, formData); ElMessage.success('更新成功') }
-    else { await createGrade(formData); ElMessage.success('创建成功') }
+    const payload: any = { ...formData }
+    if (payload.grade_level === '' || payload.grade_level === null) {
+      delete payload.grade_level
+    }
+    if (formData.id) { await updateGrade(formData.id, payload); ElMessage.success('更新成功') }
+    else { await createGrade(payload); ElMessage.success('创建成功') }
     dialogVisible.value = false
     fetchData()
   } catch (e: any) { ElMessage.error(e.message || '操作失败') }
@@ -166,7 +200,7 @@ const handleDelete = async (row: any) => {
   } catch (e: any) { if (e !== 'cancel') ElMessage.error(e.message || '删除失败') }
 }
 
-onMounted(() => { fetchTeachers(); fetchData() })
+onMounted(() => { fetchGradeNames(); fetchTeachers(); fetchData() })
 </script>
 
 <style scoped lang="scss">

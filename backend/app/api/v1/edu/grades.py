@@ -68,7 +68,7 @@ async def get_grade_options(
     """获取年级下拉选项"""
     result = await db.execute(select(Grade).where(Grade.status == "active"))
     grades = result.scalars().all()
-    options = [{"value": str(g.id), "label": g.name} for g in grades]
+    options = [{"value": str(g.id), "label": g.name, "grade_level": g.grade_level} for g in grades]
     return success(options)
 
 

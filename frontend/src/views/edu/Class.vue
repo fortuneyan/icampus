@@ -114,6 +114,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import type { FormInstance } from 'element-plus'
 import { getClassList, createClass, updateClass, deleteClass } from '@/api/edu/class'
 import { getGradeOptions, getTeacherOptions } from '@/api/edu/grade'
+import { getConfig } from '@/api/settings'
 
 const loading = ref(false)
 const tableData = ref([])
@@ -122,6 +123,8 @@ const pagination = reactive({ page: 1, pageSize: 20, total: 0 })
 
 const gradeOptions = ref<any[]>([])
 const teacherOptions = ref<any[]>([])
+const gradeNames = ref<string[]>([])
+const gradeLevelMap = ref<Record<string, number>>({})
 
 const dialogVisible = ref(false)
 const dialogTitle = ref('')
@@ -147,7 +150,27 @@ const fetchData = async () => {
 const fetchGrades = async () => {
   try {
     const res = await getGradeOptions()
-    gradeOptions.value = res.data || []
+    const grades = res.data || []
+    gradeOptions.value = grades.map((g: any) => {
+      if (g.grade_level) gradeLevelMap.value[g.value] = g.grade_level
+      let label = g.label
+      if (g.grade_level && g.grade_level >= 1 && g.grade_level <= 12 && gradeNames.value[g.grade_level - 1]) {
+        label = gradeNames.value[g.grade_level - 1]
+      }
+      return { ...g, label }
+    })
+  } catch (e) { console.error(e) }
+}
+
+const fetchGradeNames = async () => {
+  try {
+    const res = await getConfig('grade_names')
+    if (res.code === 200 && res.data) {
+      const setting = Array.isArray(res.data) ? res.data.find((s: any) => s.setting_key === 'grade_names') : res.data
+      if (setting?.setting_value) {
+        gradeNames.value = setting.setting_value.split(',')
+      }
+    }
   } catch (e) { console.error(e) }
 }
 
@@ -158,7 +181,14 @@ const fetchTeachers = async () => {
   } catch (e) { console.error(e) }
 }
 
-const getGradeName = (id: string) => gradeOptions.value.find(g => g.value === id)?.label || ''
+const getGradeName = (id: string) => {
+  const grade = gradeOptions.value.find(g => g.value === id)
+  const gradeLevel = gradeLevelMap.value[id]
+  if (gradeLevel && gradeLevel >= 1 && gradeLevel <= 12 && gradeNames.value[gradeLevel - 1]) {
+    return gradeNames.value[gradeLevel - 1]
+  }
+  return grade?.label || ''
+}
 const getTeacherName = (id: string) => teacherOptions.value.find(t => t.value === id)?.label || ''
 
 const handleGradeChange = () => { fetchData() }
@@ -199,7 +229,7 @@ const handleDelete = async (row: any) => {
   } catch (e: any) { if (e !== 'cancel') ElMessage.error(e.message || '删除失败') }
 }
 
-onMounted(() => { fetchGrades(); fetchTeachers(); fetchData() })
+onMounted(() => { fetchGradeNames(); fetchGrades(); fetchTeachers(); fetchData() })
 </script>
 
 <style scoped lang="scss">

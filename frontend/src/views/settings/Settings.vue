@@ -8,6 +8,10 @@
               <el-icon><Setting /></el-icon>
               <span>基本设置</span>
             </el-menu-item>
+            <el-menu-item index="academic">
+              <el-icon><Reading /></el-icon>
+              <span>学制设置</span>
+            </el-menu-item>
             <el-menu-item index="security">
               <el-icon><Lock /></el-icon>
               <span>安全设置</span>
@@ -46,6 +50,39 @@
             </el-form-item>
             <el-form-item>
               <el-button type="primary" :loading="basicLoading" @click="handleSaveBasic">保存</el-button>
+            </el-form-item>
+          </el-form>
+        </el-card>
+        
+        <!-- 学制设置 -->
+        <el-card v-if="activeMenu === 'academic'">
+          <template #header>学制设置</template>
+          <el-form :model="academicForm" label-width="120px">
+            <el-form-item label="学制类型">
+              <el-select v-model="academicForm.school_type" placeholder="请选择学制类型" @change="handleSchoolTypeChange">
+                <el-option label="普通高中" value="regular_high" />
+                <el-option label="职业高中" value="vocational_high" />
+                <el-option label="普通初中" value="regular_junior" />
+                <el-option label="小学" value="primary" />
+                <el-option label="自定义" value="custom" />
+              </el-select>
+            </el-form-item>
+            <el-form-item label="学制年数">
+              <el-input-number v-model="academicForm.years" :min="1" :max="academicForm.school_type === 'custom' ? 15 : 6" @change="handleYearsChange" />
+              <span style="margin-left: 10px">年</span>
+            </el-form-item>
+            <el-form-item label="年级设置">
+              <div class="grade-list">
+                <div v-for="(grade, index) in academicForm.grades" :key="index" class="grade-item">
+                  <span class="grade-label">第{{ index + 1 }}年级：</span>
+                  <el-input v-model="academicForm.grades[index]" placeholder="年级名称" style="width: 150px" />
+                  <el-button type="danger" :icon="Delete" circle @click="removeGrade(index)" style="margin-left: 8px" />
+                </div>
+                <el-button type="primary" plain @click="addGrade">添加年级</el-button>
+              </div>
+            </el-form-item>
+            <el-form-item>
+              <el-button type="primary" :loading="academicLoading" @click="handleSaveAcademic">保存</el-button>
             </el-form-item>
           </el-form>
         </el-card>
@@ -117,13 +154,14 @@
 <script setup lang="ts">
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
-import { Setting, Lock, Bell, InfoFilled } from '@element-plus/icons-vue'
+import { Setting, Lock, Bell, InfoFilled, Reading, Delete } from '@element-plus/icons-vue'
 import { getConfig, updateConfig, getSystemInfo } from '@/api/settings'
 
 const activeMenu = ref('basic')
 const basicLoading = ref(false)
 const securityLoading = ref(false)
 const notificationLoading = ref(false)
+const academicLoading = ref(false)
 const systemInfoLoading = ref(false)
 
 const systemInfo = reactive<Record<string, string>>({})
@@ -147,6 +185,52 @@ const notificationForm = reactive({
   system_enabled: true,
   score_notify_parent: true
 })
+
+const schoolTypeConfig: Record<string, { years: number; grades: string[] }> = {
+  regular_high: { years: 3, grades: ['高一', '高二', '高三'] },
+  vocational_high: { years: 3, grades: ['职一', '职二', '职三'] },
+  regular_junior: { years: 3, grades: ['初一', '初二', '初三'] },
+  primary: { years: 6, grades: ['一年级', '二年级', '三年级', '四年级', '五年级', '六年级'] },
+  custom: { years: 3, grades: ['一年级', '二年级', '三年级'] }
+}
+
+const academicForm = reactive({
+  school_type: 'regular_high',
+  years: 3,
+  grades: ['高一', '高二', '高三']
+})
+
+const handleSchoolTypeChange = (type: string) => {
+  const config = schoolTypeConfig[type]
+  if (config) {
+    academicForm.years = config.years
+    academicForm.grades = [...config.grades]
+  }
+}
+
+const handleYearsChange = (years: number) => {
+  const currentGrades = academicForm.grades.length
+  if (years > currentGrades) {
+    for (let i = currentGrades; i < years; i++) {
+      academicForm.grades.push(`${i + 1}年级`)
+    }
+  } else if (years < currentGrades) {
+    academicForm.grades = academicForm.grades.slice(0, years)
+  }
+}
+
+const addGrade = () => {
+  if (academicForm.grades.length < academicForm.years) {
+    academicForm.grades.push(`${academicForm.grades.length + 1}年级`)
+  }
+}
+
+const removeGrade = (index: number) => {
+  if (academicForm.grades.length > 1) {
+    academicForm.grades.splice(index, 1)
+    academicForm.years = academicForm.grades.length
+  }
+}
 
 const handleMenuSelect = (index: string) => {
   activeMenu.value = index
@@ -233,6 +317,52 @@ const handleSaveNotification = async () => {
   }
 }
 
+// 加载学制设置
+const loadAcademicConfig = async () => {
+  try {
+    const res = await getConfig()
+    if (res.code === 200 && res.data) {
+      const configs = Array.isArray(res.data) ? res.data : [res.data]
+      let loadedYears = 3
+      let loadedGrades: string[] = []
+      configs.forEach((item: any) => {
+        if (item.setting_key === 'school_type') {
+          academicForm.school_type = item.setting_value || 'regular_high'
+        }
+        if (item.setting_key === 'academic_years') {
+          loadedYears = parseInt(item.setting_value) || 3
+        }
+        if (item.setting_key === 'grade_names') {
+          loadedGrades = item.setting_value ? item.setting_value.split(',') : []
+        }
+      })
+      if (loadedGrades.length > 0) {
+        academicForm.years = loadedYears
+        academicForm.grades = loadedGrades
+      } else {
+        handleSchoolTypeChange(academicForm.school_type)
+      }
+    }
+  } catch (error) {
+    console.error('加载学制配置失败:', error)
+  }
+}
+
+// 保存学制设置
+const handleSaveAcademic = async () => {
+  academicLoading.value = true
+  try {
+    await updateConfig({ setting_key: 'school_type', setting_value: academicForm.school_type, value_type: 'string' })
+    await updateConfig({ setting_key: 'academic_years', setting_value: String(academicForm.years), value_type: 'int' })
+    await updateConfig({ setting_key: 'grade_names', setting_value: academicForm.grades.join(','), value_type: 'string' })
+    ElMessage.success('学制设置已保存')
+  } catch (error) {
+    console.error('保存失败:', error)
+  } finally {
+    academicLoading.value = false
+  }
+}
+
 // 加载系统信息
 const loadSystemInfo = async () => {
   systemInfoLoading.value = true
@@ -250,6 +380,7 @@ const loadSystemInfo = async () => {
 
 onMounted(() => {
   loadConfig()
+  loadAcademicConfig()
 })
 </script>
 
@@ -261,5 +392,18 @@ onMounted(() => {
       line-height: 50px;
     }
   }
+}
+.grade-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.grade-item {
+  display: flex;
+  align-items: center;
+}
+.grade-label {
+  width: 80px;
+  color: #606266;
 }
 </style>

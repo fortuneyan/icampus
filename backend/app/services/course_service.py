@@ -44,4 +44,41 @@ class CourseService(BaseService[Course]):
             filters.append(Course.grade_id == grade_id)
 
         courses = await self.get_all(filters)
-        return [{"id": str(c.id), "label": f"{c.code} - {c.name}", "value": str(c.id)} for c in courses]
+        return [
+            {
+                "id": str(c.id),
+                "value": str(c.id),
+                "name": f"{c.code} - {c.name}",
+                "label": f"{c.code} - {c.name}",
+                "grade_id": str(c.grade_id) if c.grade_id else None,
+                "grade_levels": list(c.grade_levels) if c.grade_levels else [],
+                "course_type": c.course_type.value if hasattr(c.course_type, 'value') else str(c.course_type),
+            }
+            for c in courses
+        ]
+
+    async def get_courses_by_teacher(self, teacher_id: UUID) -> List[dict]:
+        """获取教师承担的课程列表"""
+        from sqlalchemy import text
+        teacher_id_str = str(teacher_id)
+        result = await self.db.execute(
+            text("""
+                SELECT id, code, name, category, grade_id, semester
+                FROM courses
+                WHERE status = 'active' 
+                AND (teacher_id = :tid OR :tid = ANY(teacher_ids))
+            """),
+            {"tid": teacher_id_str}
+        )
+        rows = result.fetchall()
+        return [
+            {
+                "id": str(row.id),
+                "code": row.code,
+                "name": row.name,
+                "category": row.category,
+                "grade_id": str(row.grade_id) if row.grade_id else None,
+                "semester": row.semester,
+            }
+            for row in rows
+        ]

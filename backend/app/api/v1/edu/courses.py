@@ -24,7 +24,7 @@ async def get_courses(
     grade_id: Optional[UUID] = Query(None),
     status: Optional[str] = Query(None),
     page: int = Query(1, ge=1),
-    page_size: int = Query(20, ge=1, le=100),
+    page_size: int = Query(20, ge=1, le=1000),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -48,10 +48,14 @@ async def get_courses(
             "credit": float(c.credit) if c.credit else None,
             "hours": c.hours,
             "teacher_id": str(c.teacher_id) if c.teacher_id else None,
+            "teacher_ids": [str(t) for t in c.teacher_ids] if c.teacher_ids else [],
             "grade_id": str(c.grade_id) if c.grade_id else None,
             "semester": c.semester,
             "exam_type": c.exam_type,
             "status": c.status,
+            "grade_levels": list(c.grade_levels) if c.grade_levels else [],
+            "course_type": c.course_type.value if hasattr(c.course_type, 'value') else str(c.course_type),
+            "prerequisite_course_ids": [str(p) for p in (c.prerequisite_course_ids or [])],
         }
         for c in result["items"]
     ]
@@ -97,6 +101,9 @@ async def get_course(
             "semester": course.semester,
             "exam_type": course.exam_type,
             "status": course.status,
+            "grade_levels": list(course.grade_levels) if course.grade_levels else [],
+            "course_type": course.course_type.value if hasattr(course.course_type, 'value') else str(course.course_type),
+            "prerequisite_course_ids": [str(p) for p in (course.prerequisite_course_ids or [])],
         }
     )
 
@@ -138,3 +145,15 @@ async def delete_course(
     course_service = CourseService(db)
     await course_service.soft_delete(course_id)
     return success(message="课程删除成功")
+
+
+@router.get("/by-teacher/{teacher_id}", response_model=dict)
+async def get_courses_by_teacher(
+    teacher_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """获取教师承担的课程列表"""
+    course_service = CourseService(db)
+    courses = await course_service.get_courses_by_teacher(teacher_id)
+    return success(courses)

@@ -8,7 +8,7 @@
           </el-form-item>
           <el-form-item label="年级">
             <el-select v-model="searchForm.grade_id" placeholder="请选择" clearable @change="handleGradeChange">
-              <el-option v-for="g in gradeOptions" :key="g.value" :label="g.label" :value="g.value" />
+              <el-option v-for="g in gradeOptions" :key="g.value" :label="getGradeName(g.value)" :value="g.value" />
             </el-select>
           </el-form-item>
           <el-form-item label="课程">
@@ -85,7 +85,7 @@
       <el-form ref="formRef" :model="formData" :rules="formRules" label-width="100px">
         <el-form-item label="年级" prop="grade_id">
           <el-select v-model="formData.grade_id" placeholder="请选择" @change="handleFormGradeChange">
-            <el-option v-for="g in gradeOptions" :key="g.value" :label="g.label" :value="g.value" />
+            <el-option v-for="g in gradeOptions" :key="g.value" :label="getGradeName(g.value)" :value="g.value" />
           </el-select>
         </el-form-item>
         <el-form-item label="班级" prop="class_id">
@@ -147,6 +147,7 @@ import { getStudentOptions, getStudentDetail } from '@/api/edu/student'
 import { getClassOptions, getClassDetail } from '@/api/edu/class'
 import { getCourseOptions } from '@/api/edu/course'
 import { getGradeOptions } from '@/api/edu/grade'
+import { getConfig } from '@/api/settings'
 
 const loading = ref(false)
 const tableData = ref([])
@@ -157,6 +158,28 @@ const studentOptions = ref<any[]>([])
 const courseOptions = ref<any[]>([])
 const gradeOptions = ref<any[]>([])
 const classOptions = ref<any[]>([])
+const gradeNames = ref<string[]>([])
+
+const getGradeName = (id: string) => {
+  const grade = gradeOptions.value.find(g => g.value === id)
+  const gradeLevel = grade?.grade_level
+  if (gradeLevel && gradeLevel >= 1 && gradeLevel <= 12 && gradeNames.value[gradeLevel - 1]) {
+    return gradeNames.value[gradeLevel - 1]
+  }
+  return grade?.label || ''
+}
+
+const fetchGradeNames = async () => {
+  try {
+    const res = await getConfig('grade_names')
+    if (res.code === 200 && res.data) {
+      const setting = Array.isArray(res.data) ? res.data.find((s: any) => s.setting_key === 'grade_names') : res.data
+      if (setting?.setting_value) {
+        gradeNames.value = setting.setting_value.split(',')
+      }
+    }
+  } catch (e) { console.error(e) }
+}
 
 const dialogVisible = ref(false)
 const dialogTitle = ref('')
@@ -232,11 +255,11 @@ const getExamTypeName = (type: string) => ({ midterm: '期中', final: '期末',
 const handleSearch = () => { pagination.page = 1; fetchData() }
 const handleReset = () => { searchForm.student_name = ''; searchForm.grade_id = ''; searchForm.course_id = ''; searchForm.exam_type = ''; handleSearch() }
 
-const handleAdd = () => {
+const handleAdd = async () => {
   Object.assign(formData, { id: '', grade_id: '', class_id: '', student_id: '', course_id: '', score: 0, full_score: 100, exam_type: 'midterm', exam_date: '', semester: '', rank: null, comment: '' })
   classOptions.value = []
   studentOptions.value = []
-  courseOptions.value = []
+  await Promise.all([fetchGrades(), fetchCourses()])
   dialogTitle.value = '录入成绩'
   dialogVisible.value = true
 }
@@ -298,7 +321,12 @@ const handleDelete = async (row: any) => {
   } catch (e: any) { if (e !== 'cancel') ElMessage.error(e.message || '删除失败') }
 }
 
-onMounted(() => { fetchGrades(); fetchCourses(); fetchData() })
+onMounted(async () => {
+  await fetchGradeNames()
+  fetchGrades()
+  fetchCourses()
+  fetchData()
+})
 </script>
 
 <style scoped lang="scss">

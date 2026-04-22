@@ -87,7 +87,7 @@ async def get_class_options(
         query = query.where(Class.grade_id == grade_id)
     result = await db.execute(query)
     classes = result.scalars().all()
-    options = [{"value": str(c.id), "label": c.name} for c in classes]
+    options = [{"value": str(c.id), "label": c.name, "grade_id": str(c.grade_id) if c.grade_id else null} for c in classes]
     return success(options)
 
 

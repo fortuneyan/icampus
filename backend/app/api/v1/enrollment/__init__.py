@@ -33,7 +33,7 @@ async def get_student_enrollment_history(
 ):
     """获取学生学籍变动历史"""
     result = await db.execute(
-        select(Student).where(Student.id == uuid4() if isinstance(student_id, str) else student_id)
+        select(Student).where(Student.id == uuid4(student_id) if isinstance(student_id, str) else student_id)
     )
     student = result.scalar_one_or_none()
     

@@ -160,18 +160,18 @@
     <el-dialog v-model="dialogVisible" :title="dialogTitle" width="700px">
       <el-form ref="formRef" :model="formData" :rules="formRules" label-width="100px">
         <el-form-item label="课程">
-          <el-select v-model="formData.course_id" placeholder="请选择课程" @change="onCourseChange">
-            <el-option v-for="c in courseOptions" :key="c.id" :label="c.name" :value="c.id" />
+          <el-select v-model="formData.course_id" placeholder="请选择课程" clearable @change="onCourseChange">
+            <el-option v-for="c in courseOptions" :key="c.id" :label="c.name + (c.grade_id ? ' (' + (getGradeLabel(c.grade_id) || '未分年级') + ')' : '')" :value="c.id" />
           </el-select>
         </el-form-item>
         <el-form-item label="年级">
-          <el-select v-model="formData.grade_id" placeholder="请选择年级" @change="onGradeChange">
-            <el-option v-for="g in gradeOptions" :key="g.id" :label="g.name" :value="g.id" />
+          <el-select v-model="formData.grade_id" placeholder="请选择年级" clearable @change="onGradeChange">
+            <el-option v-for="g in gradeOptions" :key="g.value" :label="g.label" :value="g.value" />
           </el-select>
         </el-form-item>
         <el-form-item label="班级">
-          <el-select v-model="formData.class_id" placeholder="请选择班级" multiple>
-            <el-option v-for="c in classOptions" :key="c.id" :label="c.name" :value="c.id" />
+          <el-select v-model="formData.class_id" placeholder="请选择班级" multiple clearable>
+            <el-option v-for="c in classOptions" :key="c.value" :label="c.label" :value="c.value" />
           </el-select>
         </el-form-item>
         <el-form-item label="作业标题" prop="title">
@@ -252,8 +252,10 @@ import {
   createWrongQuestion,
   getHomeworkStats
 } from '@/api/homework'
+import { getConfig } from '@/api/settings'
 
 const activeTab = ref('homework')
+const gradeNames = ref<string[]>([])
 
 const searchForm = reactive({ status: '' })
 const tableData = ref([])
@@ -285,35 +287,115 @@ const formRules = {
 const courseOptions = ref<any[]>([])
 const gradeOptions = ref<any[]>([])
 const classOptions = ref<any[]>([])
+const isAdmin = ref(false)
+const allCourseOptions = ref<any[]>([])
+const allGradeOptions = ref<any[]>([])
+const allClassOptions = ref<any[]>([])
 
 const loadOptions = async () => {
   try {
     const userRes = await request.get('/auth/me')
-    const userId = userRes.data?.id
+    const user = userRes.data
+    const userId = user?.id
+    const role = user?.role
     
-    const deptRes = await request.get(`/system/users/${userId}/profile`)
-    const profile = deptRes.data
+    isAdmin.value = role === 'admin'
     
-    if (profile?.courses?.length) {
-      courseOptions.value = profile.courses
-    }
-    if (profile?.grades?.length) {
-      gradeOptions.value = profile.grades
-    }
-    if (profile?.classes?.length) {
-      classOptions.value = profile.classes
+    if (role === 'admin') {
+      const courseRes = await request.get('/edu/courses/options')
+      allCourseOptions.value = courseRes.data || []
+      courseOptions.value = allCourseOptions.value
+      
+      const gradeRes = await request.get('/edu/grades/options')
+      allGradeOptions.value = (gradeRes.data || []).map((g: any) => {
+        let label = g.label
+        if (g.grade_level && g.grade_level >= 1 && g.grade_level <= 12 && gradeNames.value[g.grade_level - 1]) {
+          label = gradeNames.value[g.grade_level - 1]
+        }
+        return { ...g, label }
+      })
+      gradeOptions.value = allGradeOptions.value
+      
+      const classRes = await request.get('/edu/classes/options')
+      allClassOptions.value = classRes.data || []
+      classOptions.value = allClassOptions.value
+    } else {
+      const courseRes = await request.get(`/edu/courses/by-teacher/${userId}`)
+      courseOptions.value = courseRes.data || []
+      
+      const gradeSet = new Set<string>()
+      for (const course of (courseRes.data || [])) {
+        if (course.grade_id) gradeSet.add(course.grade_id)
+      }
+      
+      const gradeRes = await request.get('/edu/grades/options')
+      const rawGrades = gradeRes.data || []
+      allGradeOptions.value = rawGrades.map((g: any) => {
+        let label = g.label
+        if (g.grade_level && g.grade_level >= 1 && g.grade_level <= 12 && gradeNames.value[g.grade_level - 1]) {
+          label = gradeNames.value[g.grade_level - 1]
+        }
+        return { value: g.value, label: label }
+      })
+      
+      gradeOptions.value = Array.from(gradeSet).map((gid: string) => {
+        const g = allGradeOptions.value.find((g: any) => g.value === gid)
+        return g ? { value: g.value, label: g.label } : null
+      }).filter((g: any) => g !== null)
+      
+      if (gradeOptions.value.length === 0) {
+        gradeOptions.value = allGradeOptions.value
+      }
+      classOptions.value = allClassOptions.value
     }
   } catch (e) {
     console.error('加载选项失败', e)
   }
 }
 
-const onCourseChange = () => {
-  formData.class_id = []
+const getGradeLabel = (gradeId: string) => {
+  const g = allGradeOptions.value.find((g: any) => g.value === gradeId)
+  return g?.label || ''
 }
 
-const onGradeChange = () => {
+const onCourseChange = async () => {
   formData.class_id = []
+  const course = courseOptions.value.find((c: any) => c.id === formData.course_id)
+  if (course?.grade_id) {
+    formData.grade_id = course.grade_id
+  }
+  if (isAdmin.value) {
+    if (formData.grade_id) {
+      classOptions.value = allClassOptions.value.filter((c: any) => c.grade_id === formData.grade_id)
+    } else if (formData.course_id) {
+      classOptions.value = allClassOptions.value.filter((c: any) => c.course_id === formData.course_id)
+    } else {
+      classOptions.value = allClassOptions.value
+    }
+  } else {
+    if (formData.grade_id) {
+      classOptions.value = allClassOptions.value.filter((c: any) => c.grade_id === formData.grade_id)
+    } else {
+      classOptions.value = allClassOptions.value
+    }
+  }
+}
+
+const onGradeChange = async () => {
+  formData.class_id = []
+  if (isAdmin.value) {
+    if (formData.grade_id) {
+      classOptions.value = allClassOptions.value.filter((c: any) => c.grade_id === formData.grade_id)
+    } else {
+      classOptions.value = allClassOptions.value
+    }
+  } else {
+    if (formData.grade_id) {
+      classOptions.value = allClassOptions.value.filter((c: any) => c.grade_id === formData.grade_id)
+    } else {
+      classOptions.value = allClassOptions.value
+    }
+  }
 }
 
 const wrongFilter = reactive({ is_mastered: null as boolean | null })
@@ -487,9 +569,22 @@ const handleTabChange = (tab: string) => {
   }
 }
 
+const loadGradeNames = async () => {
+  try {
+    const res = await getConfig('grade_names')
+    if (res.code === 200 && res.data) {
+      const setting = Array.isArray(res.data) ? res.data.find((s: any) => s.setting_key === 'grade_names') : res.data
+      if (setting?.setting_value) {
+        gradeNames.value = setting.setting_value.split(',')
+      }
+    }
+  } catch (e) { console.error(e) }
+}
+
 onMounted(() => {
   fetchData()
   fetchStats()
+  loadGradeNames()
   loadOptions()
 })
 </script>

@@ -86,7 +86,7 @@
           </el-select>
         </el-form-item>
         <el-form-item label="课程" prop="course_id">
-          <el-select v-model="formData.course_id" placeholder="请选择">
+          <el-select v-model="formData.course_id" placeholder="请选择" multiple clearable>
             <el-option v-for="c in courseOptions" :key="c.value" :label="c.label" :value="c.value" />
           </el-select>
         </el-form-item>
@@ -138,6 +138,7 @@ import { getClassOptions, getClassDetail } from '@/api/edu/class'
 import { getCourseOptions } from '@/api/edu/course'
 import { getTeacherOptions, getGradeOptions } from '@/api/edu/grade'
 import { getClassroomOptions } from '@/api/edu/classroom'
+import { getConfig } from '@/api/settings'
 
 const loading = ref(false)
 const tableData = ref([])
@@ -149,11 +150,30 @@ const courseOptions = ref<any[]>([])
 const teacherOptions = ref<any[]>([])
 const roomOptions = ref<any[]>([])
 const gradeOptions = ref<any[]>([])
+const gradeNames = ref<string[]>([])
+const gradeLevelMap = ref<Record<string, number>>({})
+
+const getGradeName = (gradeLevel: number) => {
+  if (!gradeLevel || gradeLevel < 1) return '-'
+  return gradeNames.value[gradeLevel - 1] || `年级${gradeLevel}`
+}
+
+const fetchGradeNames = async () => {
+  try {
+    const res = await getConfig('grade_names')
+    if (res.code === 200 && res.data) {
+      const setting = Array.isArray(res.data) ? res.data.find((s: any) => s.setting_key === 'grade_names') : res.data
+      if (setting?.setting_value) {
+        gradeNames.value = setting.setting_value.split(',')
+      }
+    }
+  } catch (e) { console.error(e) }
+}
 
 const dialogVisible = ref(false)
 const dialogTitle = ref('')
 const formRef = ref<FormInstance>()
-const formData = reactive<any>({ id: '', grade_id: '', class_id: '', course_id: '', teacher_id: '', day_of_week: 1, period: 1, room_id: '', week: 1, semester: '' })
+const formData = reactive<any>({ id: '', grade_id: '', class_id: '', course_id: [] as string[], teacher_id: '', day_of_week: 1, period: 1, room_id: '', week: 1, semester: '' })
 
 const formRules = {
   class_id: [{ required: true, message: '请选择班级', trigger: 'change' }],
@@ -190,7 +210,15 @@ const fetchCourses = async (grade_id?: string) => {
 const fetchGrades = async () => {
   try {
     const res = await getGradeOptions()
-    gradeOptions.value = res.data || []
+    const grades = res.data || []
+    gradeOptions.value = grades.map((g: any) => {
+      if (g.grade_level) gradeLevelMap.value[g.value] = g.grade_level
+      let label = g.label
+      if (g.grade_level && g.grade_level >= 1 && g.grade_level <= 12 && gradeNames.value[g.grade_level - 1]) {
+        label = gradeNames.value[g.grade_level - 1]
+      }
+      return { ...g, label }
+    })
   } catch (e) { console.error(e) }
 }
 
@@ -216,7 +244,12 @@ const fetchRooms = async () => {
 }
 
 const getClassName = (id: string) => classOptions.value.find(c => c.value === id)?.label || ''
-const getCourseName = (id: string) => courseOptions.value.find(c => c.value === id)?.label || ''
+const getCourseName = (id: any) => {
+  if (Array.isArray(id)) {
+    return id.map(cid => courseOptions.value.find(c => c.value === cid)?.label || '').join(', ')
+  }
+  return courseOptions.value.find(c => c.value === id)?.label || ''
+}
 const getTeacherName = (id: string) => teacherOptions.value.find(t => t.value === id)?.label || ''
 const getRoomName = (id: string) => roomOptions.value.find(r => r.value === id)?.label || id
 
@@ -224,14 +257,20 @@ const handleClassChange = () => { fetchData() }
 const handleSearch = () => { pagination.page = 1; fetchData() }
 const handleReset = () => { searchForm.class_id = ''; searchForm.week = 1; handleSearch() }
 
-const handleAdd = () => {
-  Object.assign(formData, { id: '', grade_id: '', class_id: '', course_id: '', teacher_id: '', day_of_week: 1, period: 1, room_id: '', week: 1, semester: '' })
+const handleAdd = async () => {
+  const defaultClassId = searchForm.class_id
+  Object.assign(formData, { id: '', grade_id: '', class_id: defaultClassId, course_id: [] as string[], teacher_id: '', day_of_week: 1, period: 1, room_id: '', week: 1, semester: '' })
+  if (defaultClassId) {
+    await loadEditOptions(defaultClassId)
+  } else {
+    await Promise.all([fetchGrades(), fetchCourses()])
+  }
   dialogTitle.value = '添加课表'
   dialogVisible.value = true
 }
 
 const handleEdit = (row: any) => {
-  Object.assign(formData, { ...row })
+  Object.assign(formData, { ...row, course_id: Array.isArray(row.course_id) ? row.course_id : [row.course_id].filter(Boolean) })
   loadEditOptions(row.class_id)
   dialogTitle.value = '编辑课表'
   dialogVisible.value = true
@@ -282,7 +321,7 @@ const handleDelete = async (row: any) => {
   } catch (e: any) { if (e !== 'cancel') ElMessage.error(e.message || '删除失败') }
 }
 
-onMounted(() => { fetchGrades(); fetchClasses(); fetchCourses(); fetchTeachers(); fetchRooms(); fetchData() })
+onMounted(() => { fetchGradeNames(); fetchGrades(); fetchClasses(); fetchCourses(); fetchTeachers(); fetchRooms(); fetchData() })
 </script>
 
 <style scoped lang="scss">

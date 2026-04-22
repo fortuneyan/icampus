@@ -6,7 +6,7 @@ export interface CourseForm {
   category?: string
   credit?: number
   hours?: number
-  teacher_id?: string
+  teacher_ids?: string[]
   grade_id?: string
   semester?: string
   exam_type?: string

@@ -2,9 +2,15 @@
 课程相关 Schemas
 """
 
-from typing import Optional
+from typing import List, Optional
 from uuid import UUID
 from pydantic import BaseModel, Field, ConfigDict
+from enum import Enum
+
+
+class CourseTypeEnum(str, Enum):
+    REQUIRED = "REQUIRED"
+    ELECTIVE = "ELECTIVE"
 
 
 class CourseCreate(BaseModel):
@@ -15,10 +21,13 @@ class CourseCreate(BaseModel):
     category: Optional[str] = Field(None, max_length=50)
     credit: Optional[float] = Field(None, ge=0, le=10)
     hours: Optional[int] = Field(None, ge=0)
-    teacher_id: Optional[UUID] = None
+    teacher_ids: Optional[List[UUID]] = Field(None)
     grade_id: Optional[UUID] = None
     semester: Optional[str] = Field(None, max_length=20)
     exam_type: Optional[str] = Field(None, max_length=20)
+    grade_levels: Optional[List[int]] = Field(default_factory=list)
+    course_type: Optional[CourseTypeEnum] = CourseTypeEnum.REQUIRED
+    prerequisite_course_ids: Optional[List[UUID]] = Field(default_factory=list)
 
 
 class CourseUpdate(BaseModel):
@@ -28,11 +37,14 @@ class CourseUpdate(BaseModel):
     category: Optional[str] = None
     credit: Optional[float] = None
     hours: Optional[int] = None
-    teacher_id: Optional[UUID] = None
+    teacher_ids: Optional[List[UUID]] = None
     grade_id: Optional[UUID] = None
     semester: Optional[str] = None
     exam_type: Optional[str] = None
     status: Optional[str] = None
+    grade_levels: Optional[List[int]] = None
+    course_type: Optional[CourseTypeEnum] = None
+    prerequisite_course_ids: Optional[List[UUID]] = None
 
 
 class CourseResponse(BaseModel):
@@ -46,8 +58,11 @@ class CourseResponse(BaseModel):
     category: Optional[str] = None
     credit: Optional[float] = None
     hours: Optional[int] = None
-    teacher_id: Optional[UUID] = None
+    teacher_ids: Optional[List[UUID]] = Field(default_factory=list)
     grade_id: Optional[UUID] = None
     semester: Optional[str] = None
     exam_type: Optional[str] = None
     status: str
+    grade_levels: Optional[List[int]] = Field(default_factory=list)
+    course_type: Optional[CourseTypeEnum] = CourseTypeEnum.ELECTIVE
+    prerequisite_course_ids: Optional[List[UUID]] = Field(default_factory=list)

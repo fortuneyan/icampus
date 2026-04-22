@@ -1,6 +1,7 @@
 import request from '@/utils/request'
 
 export interface GradeForm {
+  grade_level?: number
   name: string
   code: string
   academic_year: string
@@ -26,11 +27,19 @@ export function getGradeDetail(id: string) {
 }
 
 export function createGrade(data: GradeForm) {
-  return request.post('/edu/grades', data)
+  const payload: any = { ...data }
+  if (!payload.head_teacher_id) delete payload.head_teacher_id
+  if (!payload.description) delete payload.description
+  if (payload.grade_level === '') delete payload.grade_level
+  return request.post('/edu/grades', payload)
 }
 
 export function updateGrade(id: string, data: GradeForm) {
-  return request.put(`/edu/grades/${id}`, data)
+  const payload: any = { ...data }
+  if (!payload.head_teacher_id) delete payload.head_teacher_id
+  if (!payload.description) delete payload.description
+  if (payload.grade_level === '') delete payload.grade_level
+  return request.put(`/edu/grades/${id}`, payload)
 }
 
 export function deleteGrade(id: string) {
