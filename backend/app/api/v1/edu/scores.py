@@ -17,6 +17,7 @@ from app.models.score import Score
 from app.models.student import Student
 from app.models.class_model import Class
 from app.schemas.response import success, page_response
+from app.utils.parsers import parse_uuid, parse_int, parse_float, parse_str, parse_datetime
 
 router = APIRouter()
 
@@ -171,24 +172,17 @@ async def create_score(
     current_user: User = Depends(get_current_user),
 ):
     """创建成绩"""
-    exam_date = data.get("exam_date")
-    if exam_date and isinstance(exam_date, str):
-        try:
-            exam_date = datetime.strptime(exam_date, "%Y-%m-%d")
-        except ValueError:
-            exam_date = None
-
     score_data = {
-        "student_id": data.get("student_id"),
-        "course_id": data.get("course_id"),
-        "semester": data.get("semester"),
-        "exam_type": data.get("exam_type"),
-        "score": data.get("score"),
-        "full_score": data.get("full_score") or 100,
-        "grade_letter": data.get("grade_letter"),
-        "rank": data.get("rank"),
-        "exam_date": exam_date,
-        "remarks": data.get("remarks") or data.get("comment"),
+        "student_id": parse_uuid(data.get("student_id")),
+        "course_id": parse_uuid(data.get("course_id")),
+        "semester": parse_str(data.get("semester")),
+        "exam_type": parse_str(data.get("exam_type")),
+        "score": parse_float(data.get("score")),
+        "full_score": parse_float(data.get("full_score")) or 100,
+        "grade_letter": parse_str(data.get("grade_letter")),
+        "rank": parse_int(data.get("rank")),
+        "exam_date": parse_datetime(data.get("exam_date")),
+        "remarks": parse_str(data.get("remarks") or data.get("comment")),
     }
     score = Score(**score_data)
     db.add(score)
@@ -211,34 +205,27 @@ async def update_score(
     if not score:
         return success(message="成绩不存在")
 
+    # 使用统一的解析工具
     if "student_id" in data:
-        score.student_id = data["student_id"]
+        score.student_id = parse_uuid(data["student_id"])
     if "course_id" in data:
-        score.course_id = data["course_id"]
+        score.course_id = parse_uuid(data["course_id"])
     if "semester" in data:
-        score.semester = data["semester"]
+        score.semester = parse_str(data["semester"])
     if "exam_type" in data:
-        score.exam_type = data["exam_type"]
+        score.exam_type = parse_str(data["exam_type"])
     if "score" in data:
-        score.score = data["score"]
+        score.score = parse_float(data["score"])
     if "full_score" in data:
-        score.full_score = data["full_score"]
+        score.full_score = parse_float(data["full_score"])
     if "grade_letter" in data:
-        score.grade_letter = data["grade_letter"]
+        score.grade_letter = parse_str(data["grade_letter"])
     if "rank" in data:
-        score.rank = data["rank"]
+        score.rank = parse_int(data["rank"])
     if "exam_date" in data:
-        exam_date = data["exam_date"]
-        if exam_date and isinstance(exam_date, str):
-            try:
-                exam_date = datetime.strptime(exam_date, "%Y-%m-%d")
-            except ValueError:
-                exam_date = None
-        score.exam_date = exam_date
-    if "remarks" in data:
-        score.remarks = data["remarks"]
-    if "comment" in data:
-        score.remarks = data["comment"]
+        score.exam_date = parse_datetime(data["exam_date"])
+    if "remarks" in data or "comment" in data:
+        score.remarks = parse_str(data.get("remarks") or data.get("comment"))
 
     await db.commit()
     return success({"id": str(score.id)}, "成绩更新成功")

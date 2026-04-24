@@ -3,7 +3,7 @@
 """
 
 from datetime import datetime
-from uuid import uuid4
+from uuid import UUID
 from typing import Optional
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy import select
@@ -25,6 +25,17 @@ router = APIRouter()
 MAX_GRADE_LEVEL = 12
 
 
+def parse_uuid(value: any) -> Optional[UUID]:
+    """将字符串转换为UUID"""
+    if value is None:
+        return None
+    if isinstance(value, UUID):
+        return value
+    if isinstance(value, str):
+        return UUID(value)
+    return value
+
+
 @router.get("/students/{student_id}/history", response_model=dict)
 async def get_student_enrollment_history(
     student_id: str,
@@ -33,7 +44,7 @@ async def get_student_enrollment_history(
 ):
     """获取学生学籍变动历史"""
     result = await db.execute(
-        select(Student).where(Student.id == uuid4(student_id) if isinstance(student_id, str) else student_id)
+        select(Student).where(Student.id == parse_uuid(student_id))
     )
     student = result.scalar_one_or_none()
     

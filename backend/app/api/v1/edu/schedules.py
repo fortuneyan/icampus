@@ -13,18 +13,9 @@ from app.core.security import get_current_user
 from app.models.user import User
 from app.models.schedule import Schedule
 from app.schemas.response import success, page_response
+from app.utils.parsers import parse_uuid, parse_int, parse_str
 
 router = APIRouter()
-
-
-def parse_uuid(value: Optional[str]) -> Optional[UUID]:
-    """解析UUID参数"""
-    if not value:
-        return None
-    try:
-        return UUID(value)
-    except (ValueError, AttributeError):
-        return None
 
 
 @router.get("", response_model=dict)
@@ -222,32 +213,16 @@ async def create_schedule(
     current_user: User = Depends(get_current_user),
 ):
     """创建排课"""
-    week_value = data.get("week_range") if data.get("week_range") else data.get("week")
-    if week_value is not None:
-        week_value = str(week_value)
-    
-    weekday_value = data.get("weekday") if data.get("weekday") else data.get("day_of_week")
-    if weekday_value:
-        weekday_value = int(weekday_value)
-    
-    period_start = data.get("period_start") if data.get("period_start") else data.get("period")
-    if period_start:
-        period_start = int(period_start)
-    
-    period_end = data.get("period_end") if data.get("period_end") else data.get("period")
-    if period_end:
-        period_end = int(period_end)
-    
     schedule_data = {
-        "class_id": data.get("class_id"),
-        "course_id": data.get("course_id"),
-        "teacher_id": data.get("teacher_id"),
-        "room_id": data.get("room_id"),
-        "weekday": weekday_value,
-        "period_start": period_start,
-        "period_end": period_end,
-        "semester": data.get("semester"),
-        "week_range": week_value,
+        "class_id": parse_uuid(data.get("class_id")),
+        "course_id": parse_uuid(data.get("course_id")),
+        "teacher_id": parse_uuid(data.get("teacher_id")),
+        "room_id": parse_uuid(data.get("room_id")),
+        "weekday": parse_int(data.get("weekday") or data.get("day_of_week")),
+        "period_start": parse_int(data.get("period_start") or data.get("period")),
+        "period_end": parse_int(data.get("period_end") or data.get("period")),
+        "semester": parse_str(data.get("semester")),
+        "week_range": parse_str(data.get("week_range") or data.get("week")),
     }
     schedule = Schedule(**schedule_data)
     db.add(schedule)
@@ -270,31 +245,28 @@ async def update_schedule(
     if not schedule:
         return success(message="排课不存在")
 
+    # 使用统一的解析工具处理所有字段
     if "class_id" in data:
-        schedule.class_id = data["class_id"]
+        schedule.class_id = parse_uuid(data["class_id"])
     if "course_id" in data:
-        schedule.course_id = data["course_id"]
+        schedule.course_id = parse_uuid(data["course_id"])
     if "teacher_id" in data:
-        schedule.teacher_id = data["teacher_id"]
+        schedule.teacher_id = parse_uuid(data["teacher_id"])
     if "room_id" in data:
-        schedule.room_id = data["room_id"]
-    if "weekday" in data:
-        schedule.weekday = data["weekday"]
-    if "day_of_week" in data:
-        schedule.weekday = data["day_of_week"]
+        schedule.room_id = parse_uuid(data["room_id"])
+    if "weekday" in data or "day_of_week" in data:
+        schedule.weekday = parse_int(data.get("weekday") or data.get("day_of_week"))
     if "period_start" in data:
-        schedule.period_start = data["period_start"]
+        schedule.period_start = parse_int(data["period_start"])
     if "period" in data:
-        schedule.period_start = data["period"]
-        schedule.period_end = data["period"]
+        schedule.period_start = parse_int(data["period"])
+        schedule.period_end = parse_int(data["period"])
     if "period_end" in data:
-        schedule.period_end = data["period_end"]
+        schedule.period_end = parse_int(data["period_end"])
     if "semester" in data:
-        schedule.semester = data["semester"]
-    if "week_range" in data:
-        schedule.week_range = data["week_range"]
-    if "week" in data:
-        schedule.week_range = data["week"]
+        schedule.semester = parse_str(data["semester"])
+    if "week_range" in data or "week" in data:
+        schedule.week_range = parse_str(data.get("week_range") or data.get("week"))
 
     await db.commit()
     return success({"id": str(schedule.id)}, "排课更新成功")
