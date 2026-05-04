@@ -172,6 +172,16 @@ class PasswordStrength(Enum):
     STRONG = 5
     VERY_STRONG = 6
     
+    # 嵌套类别名，兼容测试代码
+    class Level:
+        """强度级别别名（兼容旧测试代码）"""
+        VERY_WEAK = None  # 将在类定义后设置
+        WEAK = None
+        FAIR = None
+        MEDIUM = None
+        STRONG = None
+        VERY_STRONG = None
+    
     @classmethod
     def calculate(cls, password: str) -> "PasswordStrength":
         """
@@ -335,3 +345,12 @@ class PasswordCheckResult:
             errors=errors,
             strength=strength
         )
+
+
+# 设置 Level 别名，使其指向实际的枚举值
+PasswordStrength.Level.VERY_WEAK = PasswordStrength.VERY_WEAK
+PasswordStrength.Level.WEAK = PasswordStrength.WEAK
+PasswordStrength.Level.FAIR = PasswordStrength.FAIR
+PasswordStrength.Level.MEDIUM = PasswordStrength.MEDIUM
+PasswordStrength.Level.STRONG = PasswordStrength.STRONG
+PasswordStrength.Level.VERY_STRONG = PasswordStrength.VERY_STRONG

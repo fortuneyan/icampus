@@ -12,6 +12,7 @@ from app.api.v1.edu import (
     teaching_plans,
     lesson_plans,
     research,
+    scheduling,
 )
 
 router = APIRouter()
@@ -22,6 +23,7 @@ router.include_router(classes.router, prefix="/classes", tags=["班级管理"])
 router.include_router(courses.router, prefix="/courses", tags=["课程管理"])
 router.include_router(scores.router, prefix="/scores", tags=["成绩管理"])
 router.include_router(schedules.router, prefix="/schedules", tags=["排课管理"])
+router.include_router(scheduling.router, prefix="/scheduling", tags=["智能排课"])
 router.include_router(classrooms.router, prefix="/classrooms", tags=["教室管理"])
 router.include_router(
     student_profiles.router, prefix="/student-profiles", tags=["学生扩展信息"]

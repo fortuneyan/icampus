@@ -2,7 +2,7 @@
 用户相关 Schemas
 """
 
-from typing import Optional
+from typing import Optional, List
 from datetime import date
 from pydantic import BaseModel, Field, ConfigDict
 from uuid import UUID
@@ -22,6 +22,7 @@ class UserCreate(BaseModel):
     birth_date: Optional[date] = None
     address: Optional[str] = Field(None, max_length=255)
     status: str = "active"
+    role_ids: Optional[List[UUID]] = None
 
 
 class UserUpdate(BaseModel):
@@ -36,6 +37,7 @@ class UserUpdate(BaseModel):
     birth_date: Optional[date] = None
     address: Optional[str] = None
     status: Optional[str] = None
+    role_ids: Optional[List[UUID]] = None
 
 
 class UserPasswordReset(BaseModel):
@@ -49,6 +51,13 @@ class UserPasswordChange(BaseModel):
 
     old_password: str = Field(..., min_length=6)
     new_password: str = Field(..., min_length=6)
+
+
+class RoleSimple(BaseModel):
+    """角色简要信息"""
+    id: UUID
+    code: str
+    name: str
 
 
 class UserResponse(BaseModel):
@@ -69,12 +78,12 @@ class UserResponse(BaseModel):
     address: Optional[str] = None
     status: str
     created_at: Optional[str] = None
+    roles: List[RoleSimple] = []
 
 
 class UserWithRoles(UserResponse):
-    """带角色的用户响应"""
-
-    roles: list = []
+    """带角色的用户响应（保持向后兼容）"""
+    pass
 
 
 class UserQuery(BaseModel):

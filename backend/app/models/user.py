@@ -51,3 +51,8 @@ class User(Base):
     department = relationship(
         "Department", back_populates="users", foreign_keys=[department_id]
     )
+
+    # 用户-角色关联
+    user_role_assocs = relationship(
+        "UserRole", back_populates="user", cascade="all, delete-orphan"
+    )

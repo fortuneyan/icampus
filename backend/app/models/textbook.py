@@ -76,6 +76,23 @@ class Textbook(Base, TimestampMixin, SoftDeleteMixin):
     course = relationship("Course")
     adoptions = relationship("TextbookAdoption", back_populates="textbook", cascade="all, delete-orphan")
 
+    def __init__(self, **kwargs):
+        """设置默认值"""
+        # 价格和库存默认值
+        if 'price' not in kwargs or kwargs['price'] is None:
+            kwargs['price'] = 0.0
+        if 'cost_price' not in kwargs or kwargs['cost_price'] is None:
+            kwargs['cost_price'] = 0.0
+        if 'stock_quantity' not in kwargs or kwargs['stock_quantity'] is None:
+            kwargs['stock_quantity'] = 0
+        if 'min_stock' not in kwargs or kwargs['min_stock'] is None:
+            kwargs['min_stock'] = 10
+        if 'reorder_point' not in kwargs or kwargs['reorder_point'] is None:
+            kwargs['reorder_point'] = 20
+        if 'status' not in kwargs or kwargs['status'] is None:
+            kwargs['status'] = TextbookStatus.DRAFT
+        super().__init__(**kwargs)
+
     def to_dict(self) -> dict:
         """转换为字典"""
         return {

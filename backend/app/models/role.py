@@ -9,6 +9,7 @@ from sqlalchemy import (
     Text,
     ForeignKey,
     JSON,
+    UniqueConstraint,
 )
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
@@ -29,6 +30,9 @@ class Role(Base):
     status = Column(String(20), default="active")
     created_at = Column(DateTime, default=datetime.now)
     updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)
+
+    # 用户-角色关联
+    user_role_assocs = relationship("UserRole", back_populates="role", cascade="all, delete-orphan")
 
 
 class Permission(Base):
@@ -70,7 +74,31 @@ class Menu(Base):
     parent = relationship("Menu", remote_side=[id], backref="children")
 
 
+class UserRole(Base):
+    """用户-角色中间表（多对多）"""
+    __tablename__ = "user_roles"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
+    user_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    role_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("roles.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    created_at = Column(DateTime, default=datetime.now)
+
+    __table_args__ = (UniqueConstraint("user_id", "role_id", name="uq_user_role"),)
+
+    user = relationship("User", back_populates="user_role_assocs")
+    role = relationship("Role", back_populates="user_role_assocs")
+
+
+# 已废弃的占位符（保留以防旧代码引用）
 role_permissions = None
-
-
 user_roles = None

@@ -58,6 +58,7 @@
           <el-menu-item index="/edu/students">学生管理</el-menu-item>
           <el-menu-item index="/edu/courses">课程管理</el-menu-item>
           <el-menu-item index="/edu/scores">成绩管理</el-menu-item>
+          <el-menu-item index="/edu/scheduling">智能排课</el-menu-item>
           <el-menu-item index="/edu/schedules">课表管理</el-menu-item>
           <el-menu-item index="/edu/classrooms">教室管理</el-menu-item>
         </el-sub-menu>
@@ -157,6 +158,39 @@
           <el-menu-item index="/recruitment/manage">招生管理</el-menu-item>
         </el-sub-menu>
         
+        <!-- ==================== OA 办公管理 ==================== -->
+        <el-sub-menu index="oa" class="oa-menu">
+          <template #title>
+            <el-icon><FolderOpened /></el-icon>
+            <span>OA 办公</span>
+            <el-badge value="NEW" class="menu-badge" />
+          </template>
+          <el-menu-item index="/oa/workflows">
+            <el-icon><Connection /></el-icon>
+            工作流管理
+          </el-menu-item>
+          <el-menu-item index="/oa/announcements">
+            <el-icon><Bell /></el-icon>
+            公告管理
+          </el-menu-item>
+          <el-menu-item index="/oa/room-booking">
+            <el-icon><House /></el-icon>
+            教室预约
+          </el-menu-item>
+          <el-menu-item index="/oa/assets">
+            <el-icon><Box /></el-icon>
+            资产管理
+          </el-menu-item>
+          <el-menu-item index="/oa/worklogs">
+            <el-icon><Document /></el-icon>
+            工作日志
+          </el-menu-item>
+          <el-menu-item index="/oa/task-board">
+            <el-icon><Tickets /></el-icon>
+            任务看板
+          </el-menu-item>
+        </el-sub-menu>
+        
         <!-- ==================== 扩展业务 ==================== -->
         <el-sub-menu index="extended">
           <template #title>
@@ -239,7 +273,12 @@ import {
   Histogram,
   Guide,
   Monitor,
-  UserFilled
+  UserFilled,
+  FolderOpened,
+  House,
+  Box,
+  Tickets,
+  Connection
 } from '@element-plus/icons-vue'
 import ThemeSwitch from '@/components/ThemeSwitch.vue'
 
@@ -265,6 +304,7 @@ const currentModule = computed(() => {
     '/exam': '考试管理',
     '/attendance': '考勤管理',
     '/notice': '通知公告',
+    '/oa': 'OA 办公',
     '/extended': '扩展业务',
     '/settings': '系统设置'
   }

@@ -1,600 +1,575 @@
 # -*- coding: utf-8 -*-
 """
 T5: 智能排课
-API接口
+API接口 - 数据库持久化版本
 
-提供排课相关的RESTful API接口。
+提供排课相关的RESTful API接口，基于数据库持久化。
 """
 
 from datetime import date, datetime
-from typing import Optional, List, Dict, Any
+from typing import Optional, List
+from uuid import UUID
 
-try:
-    from fastapi import APIRouter, Query, HTTPException, Body
-    from pydantic import BaseModel, Field
-    HAS_APP = True
-except ImportError:
-    HAS_APP = False
+from fastapi import APIRouter, Depends, HTTPException, Query, Body
+from sqlalchemy.ext.asyncio import AsyncSession
 
-# ============== Pydantic Models ==============
-
-class TimeSlotRequest(BaseModel):
-    """时间段请求"""
-    day_of_week: int = Field(..., ge=1, le=7, description="星期几 (1-7)")
-    period: int = Field(..., ge=1, le=10, description="第几节课 (1-10)")
-    start_time: Optional[str] = None
-    end_time: Optional[str] = None
-
-
-class CourseAssignmentRequest(BaseModel):
-    """课程分配请求"""
-    course_id: int = Field(..., description="课程ID")
-    course_name: str = Field(..., description="课程名称")
-    teacher_id: int = Field(..., description="教师ID")
-    teacher_name: str = Field(..., description="教师名称")
-    class_id: int = Field(..., description="班级ID")
-    class_name: str = Field(..., description="班级名称")
-    classroom_id: Optional[int] = Field(None, description="教室ID")
-    classroom_name: Optional[str] = Field(None, description="教室名称")
-    time_slot: Optional[TimeSlotRequest] = Field(None, description="上课时间")
-    duration: int = Field(1, ge=1, le=5, description="课程时长(节)")
-    is_locked: bool = Field(False, description="是否锁定")
-    note: Optional[str] = None
+from app.core.database import get_db
+from app.services.scheduling_db_service import SchedulingDBService
+from app.schemas.scheduling import (
+    SemesterCreate, SemesterUpdate, SemesterResponse,
+    CycleCreate, CycleUpdate, CycleResponse,
+    CalendarMapCreate, CalendarMapUpdate, CalendarMapResponse, CalendarMapQuery,
+    TemplateCreate, TemplateUpdate, TemplateResponse,
+    PeriodCreate, PeriodResponse,
+    PlanCreate, PlanUpdate, PlanResponse,
+    ResultCreate, ResultUpdate, ResultResponse,
+    PatchCreate, PatchUpdate, PatchResponse,
+    ConstraintCreate, ConstraintUpdate, ConstraintResponse,
+    EventCreate, EventUpdate, EventResponse,
+    ReplaceCreate, ReplaceResponse,
+    DragAdjustRequest,
+    ClassScheduleResponse, TeacherScheduleResponse
+)
+from app.api.v1.utils import success, page_response
 
 
-class SchedulingPlanRequest(BaseModel):
-    """排课计划请求"""
-    name: str = Field(..., description="计划名称")
-    academic_year: str = Field(..., description="学年")
-    semester: str = Field(..., description="学期")
-    start_date: str = Field(..., description="开始日期")
-    end_date: str = Field(..., description="结束日期")
-    assignments: List[CourseAssignmentRequest] = Field(default_factory=list, description="课程分配列表")
+router = APIRouter(tags=["智能排课"])
 
 
-class OptimizationRequest(BaseModel):
-    """优化请求"""
-    plan_id: int = Field(..., description="计划ID")
-    max_iterations: int = Field(1000, ge=100, le=10000, description="最大迭代次数")
-    time_limit: float = Field(60.0, ge=10.0, le=300.0, description="时间限制(秒)")
+def get_service(db: AsyncSession = Depends(get_db)) -> SchedulingDBService:
+    """获取服务实例"""
+    return SchedulingDBService(db)
 
 
-class ManualAdjustRequest(BaseModel):
-    """手动调整请求"""
-    assignment_id: int = Field(..., description="分配ID")
-    new_day: int = Field(..., ge=1, le=7, description="新星期")
-    new_period: int = Field(..., ge=1, le=10, description="新课程节次")
-    new_classroom_id: Optional[int] = Field(None, description="新课程室ID")
+# ============ 学期管理 ============
+
+@router.get("/semesters", response_model=dict)
+async def list_semesters(
+    status: Optional[str] = Query(None, description="状态"),
+    service: SchedulingDBService = Depends(get_service)
+):
+    """获取学期列表"""
+    semesters = await service.get_semesters(status)
+    items = [SemesterResponse.model_validate(s).model_dump() for s in semesters]
+    return success(data={"semesters": items, "total": len(items)})
 
 
-class ApiResponse(BaseModel):
-    """通用API响应"""
-    success: bool
-    message: str
-    data: Optional[Any] = None
+@router.get("/semesters/{semester_id}", response_model=dict)
+async def get_semester(
+    semester_id: str,
+    service: SchedulingDBService = Depends(get_service)
+):
+    """获取学期详情"""
+    semester = await service.get_semester(semester_id)
+    if not semester:
+        raise HTTPException(status_code=404, detail="学期不存在")
+    return success(data=SemesterResponse.model_validate(semester).model_dump())
 
 
-# ============== Mock Data ==============
-
-# 模拟排课计划
-MOCK_PLANS: Dict[int, Dict[str, Any]] = {
-    1: {
-        "id": 1,
-        "name": "2024-2025学年第一学期排课计划",
-        "academic_year": "2024-2025",
-        "semester": "第一学期",
-        "start_date": "2024-09-01",
-        "end_date": "2025-01-15",
-        "status": "optimized",
-        "score": 92.5,
-        "optimization_iterations": 150,
-        "assignments": [
-            {
-                "id": 1,
-                "course_id": 1,
-                "course_name": "语文",
-                "teacher_id": 1,
-                "teacher_name": "张老师",
-                "class_id": 1,
-                "class_name": "初一(1)班",
-                "classroom_id": 101,
-                "classroom_name": "101教室",
-                "time_slot": {"day_of_week": 1, "period": 1},
-                "duration": 2,
-                "status": "optimized",
-                "is_locked": False,
-            },
-            {
-                "id": 2,
-                "course_id": 2,
-                "course_name": "数学",
-                "teacher_id": 2,
-                "teacher_name": "李老师",
-                "class_id": 1,
-                "class_name": "初一(1)班",
-                "classroom_id": 102,
-                "classroom_name": "102教室",
-                "time_slot": {"day_of_week": 1, "period": 3},
-                "duration": 2,
-                "status": "optimized",
-                "is_locked": False,
-            },
-        ],
-    }
-}
-
-# 模拟班级数据
-MOCK_CLASSES = [
-    {"id": 1, "name": "初一(1)班", "grade": 7, "student_count": 40},
-    {"id": 2, "name": "初一(2)班", "grade": 7, "student_count": 38},
-    {"id": 3, "name": "初二(1)班", "grade": 8, "student_count": 42},
-]
-
-# 模拟课程数据
-MOCK_COURSES = [
-    {"id": 1, "name": "语文", "subject": "language", "required_hours": 4},
-    {"id": 2, "name": "数学", "subject": "math", "required_hours": 5},
-    {"id": 3, "name": "英语", "subject": "language", "required_hours": 4},
-    {"id": 4, "name": "物理", "subject": "science", "required_hours": 3},
-]
-
-# 模拟教师数据
-MOCK_TEACHERS = [
-    {"id": 1, "name": "张老师", "subject": "语文", "max_hours": 20},
-    {"id": 2, "name": "李老师", "subject": "数学", "max_hours": 18},
-    {"id": 3, "name": "王老师", "subject": "英语", "max_hours": 20},
-    {"id": 4, "name": "赵老师", "subject": "物理", "max_hours": 15},
-]
-
-# 模拟教室数据
-MOCK_CLASSROOMS = [
-    {"id": 101, "name": "101教室", "type": "普通", "capacity": 45, "equipment": ["投影仪"]},
-    {"id": 102, "name": "102教室", "type": "普通", "capacity": 45, "equipment": ["投影仪"]},
-    {"id": 103, "name": "物理实验室", "type": "实验室", "capacity": 40, "equipment": ["投影仪", "实验设备"]},
-]
+@router.post("/semesters", response_model=dict)
+async def create_semester(
+    data: SemesterCreate,
+    service: SchedulingDBService = Depends(get_service)
+):
+    """创建学期"""
+    semester = await service.create_semester(data)
+    return success(data=SemesterResponse.model_validate(semester).model_dump())
 
 
-# ============== API Functions ==============
+# ============ 周次组合管理 ============
 
-def get_plans(
-    academic_year: Optional[str] = None,
-    semester: Optional[str] = None,
-    status: Optional[str] = None,
-    page: int = 1,
-    page_size: int = 20
-) -> Dict[str, Any]:
-    """获取排课计划列表"""
-    plans = list(MOCK_PLANS.values())
-
-    # 筛选
-    if academic_year:
-        plans = [p for p in plans if p.get("academic_year") == academic_year]
-    if semester:
-        plans = [p for p in plans if p.get("semester") == semester]
-    if status:
-        plans = [p for p in plans if p.get("status") == status]
-
-    # 分页
-    total = len(plans)
-    start_idx = (page - 1) * page_size
-    end_idx = start_idx + page_size
-    paginated = plans[start_idx:end_idx]
-
-    return {
-        "success": True,
-        "message": "获取成功",
-        "data": {
-            "plans": paginated,
-            "pagination": {
-                "page": page,
-                "page_size": page_size,
-                "total": total,
-                "total_pages": (total + page_size - 1) // page_size
-            }
-        }
-    }
+@router.get("/cycles", response_model=dict)
+async def list_cycles(
+    semester_id: Optional[str] = Query(None, description="学期ID"),
+    service: SchedulingDBService = Depends(get_service)
+):
+    """获取周次组合列表"""
+    cycles = await service.get_cycles(semester_id)
+    items = [CycleResponse.model_validate(c).model_dump() for c in cycles]
+    return success(data={"cycles": items, "total": len(items)})
 
 
-def get_plan(plan_id: int) -> Dict[str, Any]:
-    """获取排课计划详情"""
-    plan = MOCK_PLANS.get(plan_id)
-    if not plan:
-        raise ValueError(f"计划{plan_id}不存在")
-
-    return {
-        "success": True,
-        "message": "获取成功",
-        "data": plan
-    }
-
-
-def create_plan(request: SchedulingPlanRequest) -> Dict[str, Any]:
-    """创建排课计划"""
-    plan_id = len(MOCK_PLANS) + 1
-
-    plan = {
-        "id": plan_id,
-        "name": request.name,
-        "academic_year": request.academic_year,
-        "semester": request.semester,
-        "start_date": request.start_date,
-        "end_date": request.end_date,
-        "status": "draft",
-        "score": 0,
-        "optimization_iterations": 0,
-        "assignments": [
-            {
-                "id": i + 1,
-                "course_id": a.course_id,
-                "course_name": a.course_name,
-                "teacher_id": a.teacher_id,
-                "teacher_name": a.teacher_name,
-                "class_id": a.class_id,
-                "class_name": a.class_name,
-                "classroom_id": a.classroom_id,
-                "classroom_name": a.classroom_name,
-                "time_slot": a.time_slot.dict() if a.time_slot else None,
-                "duration": a.duration,
-                "status": "pending",
-                "is_locked": a.is_locked,
-                "note": a.note,
-            }
-            for i, a in enumerate(request.assignments)
-        ],
-    }
-
-    MOCK_PLANS[plan_id] = plan
-
-    return {
-        "success": True,
-        "message": "创建成功",
-        "data": plan
-    }
+@router.get("/cycles/{cycle_id}", response_model=dict)
+async def get_cycle(
+    cycle_id: str,
+    service: SchedulingDBService = Depends(get_service)
+):
+    """获取周次组合详情"""
+    cycles = await service.get_cycles()
+    cycle = next((c for c in cycles if c.id == cycle_id), None)
+    if not cycle:
+        raise HTTPException(status_code=404, detail="周次组合不存在")
+    return success(data=CycleResponse.model_validate(cycle).model_dump())
 
 
-def optimize_plan(
-    plan_id: int,
-    max_iterations: int = 1000,
-    time_limit: float = 60.0
-) -> Dict[str, Any]:
-    """优化排课计划"""
-    plan = MOCK_PLANS.get(plan_id)
-    if not plan:
-        raise ValueError(f"计划{plan_id}不存在")
-
-    # 模拟优化过程
-    import time
-    time.sleep(0.5)
-
-    # 更新状态
-    plan["status"] = "optimized"
-    plan["score"] = 92.5
-    plan["optimization_iterations"] = 150
-
-    # 更新分配状态
-    for a in plan.get("assignments", []):
-        if a.get("time_slot"):
-            a["status"] = "optimized"
-
-    return {
-        "success": True,
-        "message": "优化完成",
-        "data": {
-            "plan_id": plan_id,
-            "status": "optimized",
-            "score": plan["score"],
-            "iterations": plan["optimization_iterations"],
-            "conflicts_resolved": 3,
-        }
-    }
+@router.post("/cycles", response_model=dict)
+async def create_cycle(
+    data: CycleCreate,
+    service: SchedulingDBService = Depends(get_service)
+):
+    """创建周次组合"""
+    cycle = await service.create_cycle(data)
+    return success(data=CycleResponse.model_validate(cycle).model_dump())
 
 
-def detect_conflicts(plan_id: int) -> Dict[str, Any]:
+@router.put("/cycles/{cycle_id}/set-current", response_model=dict)
+async def set_current_cycle(
+    cycle_id: str,
+    service: SchedulingDBService = Depends(get_service)
+):
+    """设置当前生效的周次组合"""
+    await service.set_current_cycle(cycle_id)
+    return success(message="设置成功")
+
+
+# ============ 日历映射管理 ============
+
+@router.get("/calendar-maps", response_model=dict)
+async def list_calendar_maps(
+    start_date: Optional[date] = Query(None, description="开始日期"),
+    end_date: Optional[date] = Query(None, description="结束日期"),
+    is_holiday: Optional[bool] = Query(None, description="是否放假"),
+    service: SchedulingDBService = Depends(get_service)
+):
+    """获取日历映射列表"""
+    maps = await service.get_calendar_maps(start_date, end_date, is_holiday)
+    items = [CalendarMapResponse.model_validate(m).model_dump() for m in maps]
+    return success(data={"calendar_maps": items, "total": len(items)})
+
+
+@router.get("/calendar-maps/{natural_date}", response_model=dict)
+async def get_calendar_map(
+    natural_date: date,
+    service: SchedulingDBService = Depends(get_service)
+):
+    """获取指定日期的日历映射"""
+    calendar_map = await service.get_calendar_map(natural_date)
+    if not calendar_map:
+        return success(data=None)
+    return success(data=CalendarMapResponse.model_validate(calendar_map).model_dump())
+
+
+@router.post("/calendar-maps", response_model=dict)
+async def create_calendar_map(
+    data: CalendarMapCreate,
+    service: SchedulingDBService = Depends(get_service)
+):
+    """创建日历映射"""
+    calendar_map = await service.create_calendar_map(data)
+    return success(data=CalendarMapResponse.model_validate(calendar_map).model_dump())
+
+
+@router.post("/calendar-maps/batch", response_model=dict)
+async def batch_create_calendar_maps(
+    items: List[CalendarMapCreate],
+    service: SchedulingDBService = Depends(get_service)
+):
+    """批量创建日历映射"""
+    maps = await service.batch_create_calendar_maps(items)
+    return success(data={"count": len(maps), "message": f"成功创建{len(maps)}条记录"})
+
+
+@router.put("/calendar-maps/{natural_date}", response_model=dict)
+async def update_calendar_map(
+    natural_date: date,
+    data: CalendarMapUpdate,
+    service: SchedulingDBService = Depends(get_service)
+):
+    """更新日历映射"""
+    calendar_map = await service.update_calendar_map(
+        natural_date,
+        cycle_id=data.cycle_id,
+        exec_day=data.exec_day,
+        is_workday=data.is_workday,
+        is_holiday=data.is_holiday
+    )
+    if not calendar_map:
+        raise HTTPException(status_code=404, detail="日历映射不存在")
+    return success(data=CalendarMapResponse.model_validate(calendar_map).model_dump())
+
+
+# ============ 课表模板管理 ============
+
+@router.get("/templates", response_model=dict)
+async def list_templates(
+    semester_id: str = Query(..., description="学期ID"),
+    service: SchedulingDBService = Depends(get_service)
+):
+    """获取课表模板列表"""
+    templates = await service.get_templates(semester_id)
+    items = [TemplateResponse.model_validate(t).model_dump() for t in templates]
+    return success(data={"templates": items, "total": len(items)})
+
+
+@router.post("/templates", response_model=dict)
+async def create_template(
+    data: TemplateCreate,
+    service: SchedulingDBService = Depends(get_service)
+):
+    """创建课表模板"""
+    template = await service.create_template(data)
+    return success(data=TemplateResponse.model_validate(template).model_dump())
+
+
+@router.post("/templates/{template_id}/periods", response_model=dict)
+async def create_period(
+    template_id: UUID,
+    data: PeriodCreate,
+    service: SchedulingDBService = Depends(get_service)
+):
+    """创建节次"""
+    period = await service.create_period(data)
+    return success(data=PeriodResponse.model_validate(period).model_dump())
+
+
+@router.get("/templates/{template_id}/periods", response_model=dict)
+async def list_periods(
+    template_id: UUID,
+    service: SchedulingDBService = Depends(get_service)
+):
+    """获取模板的节次列表"""
+    periods = await service.get_periods(template_id)
+    items = [PeriodResponse.model_validate(p).model_dump() for p in periods]
+    return success(data={"periods": items, "total": len(items)})
+
+
+# ============ 课程规划管理 ============
+
+@router.get("/plans", response_model=dict)
+async def list_plans(
+    cycle_id: Optional[str] = Query(None, description="周次组合ID"),
+    class_id: Optional[UUID] = Query(None, description="班级ID"),
+    teacher_id: Optional[UUID] = Query(None, description="教师ID"),
+    service: SchedulingDBService = Depends(get_service)
+):
+    """获取课程规划列表"""
+    plans = await service.get_plans(cycle_id, class_id, teacher_id)
+    items = [PlanResponse.model_validate(p).model_dump() for p in plans]
+    return success(data={"plans": items, "total": len(items)})
+
+
+@router.post("/plans", response_model=dict)
+async def create_plan(
+    data: PlanCreate,
+    service: SchedulingDBService = Depends(get_service)
+):
+    """创建课程规划"""
+    plan = await service.create_plan(data)
+    return success(data=PlanResponse.model_validate(plan).model_dump())
+
+
+@router.post("/plans/batch", response_model=dict)
+async def batch_create_plans(
+    items: List[PlanCreate],
+    service: SchedulingDBService = Depends(get_service)
+):
+    """批量创建课程规划"""
+    plans = await service.batch_create_plans(items)
+    return success(data={"count": len(plans), "message": f"成功创建{len(plans)}条记录"})
+
+
+# ============ 排课结果管理 ============
+
+@router.get("/results", response_model=dict)
+async def list_results(
+    cycle_id: Optional[str] = Query(None, description="周次组合ID"),
+    class_id: Optional[UUID] = Query(None, description="班级ID"),
+    teacher_id: Optional[UUID] = Query(None, description="教师ID"),
+    day_index: Optional[int] = Query(None, ge=1, le=7, description="星期几"),
+    service: SchedulingDBService = Depends(get_service)
+):
+    """获取排课结果列表"""
+    results = await service.get_results(cycle_id, class_id, teacher_id, day_index)
+    items = [ResultResponse.model_validate(r).model_dump() for r in results]
+    return success(data={"results": items, "total": len(items)})
+
+
+@router.post("/results", response_model=dict)
+async def create_result(
+    data: ResultCreate,
+    service: SchedulingDBService = Depends(get_service)
+):
+    """创建排课结果"""
+    result = await service.create_result(data)
+    return success(data=ResultResponse.model_validate(result).model_dump())
+
+
+@router.post("/results/batch", response_model=dict)
+async def batch_create_results(
+    items: List[ResultCreate],
+    service: SchedulingDBService = Depends(get_service)
+):
+    """批量创建排课结果"""
+    results = await service.batch_create_results(items)
+    return success(data={"count": len(results), "message": f"成功创建{len(results)}条记录"})
+
+
+@router.put("/results/{result_id}", response_model=dict)
+async def update_result(
+    result_id: UUID,
+    data: ResultUpdate,
+    service: SchedulingDBService = Depends(get_service)
+):
+    """更新排课结果"""
+    result = await service.update_result(
+        result_id,
+        day_index=data.day_index,
+        period_index=data.period_index,
+        is_locked=data.is_locked
+    )
+    if not result:
+        raise HTTPException(status_code=404, detail="排课结果不存在")
+    return success(data=ResultResponse.model_validate(result).model_dump())
+
+
+@router.delete("/results/{cycle_id}", response_model=dict)
+async def delete_results(
+    cycle_id: str,
+    locked_only: bool = Query(False, description="仅删除未锁定的"),
+    service: SchedulingDBService = Depends(get_service)
+):
+    """删除周次组合的排课结果"""
+    count = await service.delete_results_by_cycle(cycle_id, locked_only)
+    return success(data={"count": count}, message=f"成功删除{count}条记录")
+
+
+# ============ 调课补丁管理 ============
+
+@router.get("/patches", response_model=dict)
+async def list_patches(
+    natural_date: Optional[date] = Query(None, description="日期"),
+    class_id: Optional[UUID] = Query(None, description="班级ID"),
+    status: Optional[str] = Query(None, description="状态"),
+    service: SchedulingDBService = Depends(get_service)
+):
+    """获取调课补丁列表"""
+    patches = await service.get_patches(natural_date, class_id, status)
+    items = [PatchResponse.model_validate(p).model_dump() for p in patches]
+    return success(data={"patches": items, "total": len(items)})
+
+
+@router.post("/patches", response_model=dict)
+async def create_patch(
+    data: PatchCreate,
+    service: SchedulingDBService = Depends(get_service)
+):
+    """创建调课补丁"""
+    patch = await service.create_patch(data)
+    return success(data=PatchResponse.model_validate(patch).model_dump())
+
+
+@router.put("/patches/{patch_id}/cancel", response_model=dict)
+async def cancel_patch(
+    patch_id: UUID,
+    service: SchedulingDBService = Depends(get_service)
+):
+    """取消调课补丁"""
+    patch = await service.cancel_patch(patch_id)
+    if not patch:
+        raise HTTPException(status_code=404, detail="调课补丁不存在")
+    return success(data=PatchResponse.model_validate(patch).model_dump())
+
+
+# ============ 冲突检测 ============
+
+@router.get("/conflicts", response_model=dict)
+async def check_conflicts(
+    cycle_id: str = Query(..., description="周次组合ID"),
+    class_id: Optional[UUID] = Query(None, description="班级ID"),
+    teacher_id: Optional[UUID] = Query(None, description="教师ID"),
+    service: SchedulingDBService = Depends(get_service)
+):
     """检测排课冲突"""
-    plan = MOCK_PLANS.get(plan_id)
-    if not plan:
-        raise ValueError(f"计划{plan_id}不存在")
-
-    # 模拟冲突检测
-    conflicts = []
-
-    assignments = plan.get("assignments", [])
-    for i, a in enumerate(assignments):
-        if not a.get("time_slot"):
-            continue
-
-        # 检查与其他分配的冲突
-        for j, b in enumerate(assignments):
-            if i >= j or not b.get("time_slot"):
-                continue
-
-            # 教师冲突
-            if a.get("teacher_id") == b.get("teacher_id"):
-                if a["time_slot"] == b["time_slot"]:
-                    conflicts.append({
-                        "type": "teacher_conflict",
-                        "severity": 4,
-                        "description": f"{a.get('teacher_name')}在同一时段有多门课程",
-                        "involved": [a["id"], b["id"]],
-                    })
-
-            # 班级冲突
-            if a.get("class_id") == b.get("class_id"):
-                if a["time_slot"] == b["time_slot"]:
-                    conflicts.append({
-                        "type": "class_conflict",
-                        "severity": 5,
-                        "description": f"{a.get('class_name')}在同一时段有多门课程",
-                        "involved": [a["id"], b["id"]],
-                    })
-
-    return {
-        "success": True,
-        "message": "检测完成",
-        "data": {
-            "total_conflicts": len(conflicts),
-            "conflicts": conflicts,
-            "can_publish": len(conflicts) == 0,
-        }
-    }
+    has_conflicts, conflicts = await service.check_conflicts(cycle_id, class_id, teacher_id)
+    return success(data={
+        "has_conflicts": has_conflicts,
+        "conflicts": conflicts,
+        "total": len(conflicts)
+    })
 
 
-def adjust_assignment(
-    plan_id: int,
-    assignment_id: int,
-    new_day: int,
-    new_period: int,
-    new_classroom_id: Optional[int] = None
-) -> Dict[str, Any]:
-    """手动调整课程分配"""
-    plan = MOCK_PLANS.get(plan_id)
-    if not plan:
-        raise ValueError(f"计划{plan_id}不存在")
+# ============ 课表查询 ============
 
-    assignment = None
-    for a in plan.get("assignments", []):
-        if a["id"] == assignment_id:
-            assignment = a
-            break
-
-    if not assignment:
-        raise ValueError(f"分配{assignment_id}不存在")
-
-    # 更新分配
-    assignment["time_slot"] = {"day_of_week": new_day, "period": new_period}
-    assignment["status"] = "manual_adjusted"
-
-    if new_classroom_id:
-        for cr in MOCK_CLASSROOMS:
-            if cr["id"] == new_classroom_id:
-                assignment["classroom_id"] = cr["id"]
-                assignment["classroom_name"] = cr["name"]
-                break
-
-    return {
-        "success": True,
-        "message": "调整成功",
-        "data": assignment
-    }
+@router.get("/schedule/class/{class_id}", response_model=dict)
+async def get_class_schedule(
+    class_id: UUID,
+    cycle_id: Optional[str] = Query(None, description="周次组合ID"),
+    natural_date: Optional[date] = Query(None, description="日期"),
+    service: SchedulingDBService = Depends(get_service)
+):
+    """获取班级课表"""
+    schedule = await service.get_class_schedule(class_id, cycle_id, natural_date)
+    return success(data=schedule)
 
 
-def publish_plan(plan_id: int) -> Dict[str, Any]:
-    """发布排课计划"""
-    plan = MOCK_PLANS.get(plan_id)
-    if not plan:
-        raise ValueError(f"计划{plan_id}不存在")
-
-    # 检查是否有冲突
-    conflicts_result = detect_conflicts(plan_id)
-    if conflicts_result["data"]["total_conflicts"] > 0:
-        raise ValueError("存在未解决的冲突，无法发布")
-
-    plan["status"] = "published"
-
-    return {
-        "success": True,
-        "message": "发布成功",
-        "data": plan
-    }
+@router.get("/schedule/teacher/{teacher_id}", response_model=dict)
+async def get_teacher_schedule(
+    teacher_id: UUID,
+    cycle_id: Optional[str] = Query(None, description="周次组合ID"),
+    natural_date: Optional[date] = Query(None, description="日期"),
+    service: SchedulingDBService = Depends(get_service)
+):
+    """获取教师课表"""
+    schedule = await service.get_teacher_schedule(teacher_id, cycle_id, natural_date)
+    return success(data=schedule)
 
 
-def get_schedule_table(
-    plan_id: int,
-    class_id: Optional[int] = None,
-    teacher_id: Optional[int] = None
-) -> Dict[str, Any]:
-    """获取课表"""
-    plan = MOCK_PLANS.get(plan_id)
-    if not plan:
-        raise ValueError(f"计划{plan_id}不存在")
+# ============ 拖拽调整 ============
 
-    # 构建课表网格
-    grid = {}
-    for day in range(1, 6):
-        grid[day] = {}
-        for period in range(1, 11):
-            grid[day][period] = []
-
-    # 填充数据
-    for a in plan.get("assignments", []):
-        if class_id and a.get("class_id") != class_id:
-            continue
-        if teacher_id and a.get("teacher_id") != teacher_id:
-            continue
-
-        ts = a.get("time_slot")
-        if ts:
-            day = ts.get("day_of_week", 1)
-            period = ts.get("period", 1)
-            duration = a.get("duration", 1)
-
-            for i in range(duration):
-                if 1 <= period + i <= 10:
-                    grid[day][period + i].append(a)
-
-    return {
-        "success": True,
-        "message": "获取成功",
-        "data": {
-            "plan_id": plan_id,
-            "plan_name": plan.get("name"),
-            "grid": grid,
-            "days": 5,
-            "periods": 10,
-        }
-    }
+@router.post("/drag-adjust", response_model=dict)
+async def drag_adjust(
+    request: DragAdjustRequest,
+    service: SchedulingDBService = Depends(get_service)
+):
+    """拖拽调整课程"""
+    result = await service.drag_adjust(request)
+    if not result["success"]:
+        raise HTTPException(status_code=400, detail=result["message"])
+    return success(data=result)
 
 
-def get_schedule_summary(plan_id: int) -> Dict[str, Any]:
-    """获取排课汇总"""
-    plan = MOCK_PLANS.get(plan_id)
-    if not plan:
-        raise ValueError(f"计划{plan_id}不存在")
+# ============ 事件管理 ============
 
-    assignments = plan.get("assignments", [])
-
-    # 按班级统计
-    by_class = {}
-    for a in assignments:
-        class_name = a.get("class_name", "未知")
-        if class_name not in by_class:
-            by_class[class_name] = {"total": 0, "assigned": 0, "unassigned": 0}
-        by_class[class_name]["total"] += 1
-        if a.get("time_slot"):
-            by_class[class_name]["assigned"] += 1
-        else:
-            by_class[class_name]["unassigned"] += 1
-
-    # 按教师统计
-    by_teacher = {}
-    for a in assignments:
-        teacher_name = a.get("teacher_name", "未知")
-        if teacher_name not in by_teacher:
-            by_teacher[teacher_name] = {"total": 0, "hours": 0}
-        by_teacher[teacher_name]["total"] += 1
-        by_teacher[teacher_name]["hours"] += a.get("duration", 1)
-
-    return {
-        "success": True,
-        "message": "获取成功",
-        "data": {
-            "plan": {
-                "id": plan["id"],
-                "name": plan["name"],
-                "status": plan["status"],
-                "score": plan.get("score", 0),
-            },
-            "total_assignments": len(assignments),
-            "assigned_count": len([a for a in assignments if a.get("time_slot")]),
-            "unassigned_count": len([a for a in assignments if not a.get("time_slot")]),
-            "by_class": by_class,
-            "by_teacher": by_teacher,
-        }
-    }
+@router.get("/events", response_model=dict)
+async def list_events(
+    semester_id: str = Query(..., description="学期ID"),
+    start_date: Optional[date] = Query(None, description="开始日期"),
+    end_date: Optional[date] = Query(None, description="结束日期"),
+    service: SchedulingDBService = Depends(get_service)
+):
+    """获取事件列表"""
+    events = await service.get_events(semester_id, start_date, end_date)
+    items = [EventResponse.model_validate(e).model_dump() for e in events]
+    return success(data={"events": items, "total": len(items)})
 
 
-# ============== API Router Setup ==============
+@router.post("/events", response_model=dict)
+async def create_event(
+    data: EventCreate,
+    service: SchedulingDBService = Depends(get_service)
+):
+    """创建批量事件"""
+    event = await service.create_event(data)
+    return success(data=EventResponse.model_validate(event).model_dump())
 
-if HAS_APP:
-    router = APIRouter(prefix="/scheduling", tags=["智能排课"])
 
-    @router.get("/plans", response_model=ApiResponse)
-    async def list_plans(
-        academic_year: Optional[str] = Query(None, description="学年"),
-        semester: Optional[str] = Query(None, description="学期"),
-        status: Optional[str] = Query(None, description="状态"),
-        page: int = Query(1, ge=1, description="页码"),
-        page_size: int = Query(20, ge=1, le=100, description="每页数量"),
-    ):
-        """获取排课计划列表"""
-        return get_plans(academic_year, semester, status, page, page_size)
+# ============ 长期代课管理 ============
 
-    @router.get("/plans/{plan_id}", response_model=ApiResponse)
-    async def get_plan_detail(plan_id: int):
-        """获取排课计划详情"""
-        return get_plan(plan_id)
+@router.post("/replaces", response_model=dict)
+async def create_replace(
+    data: ReplaceCreate,
+    service: SchedulingDBService = Depends(get_service)
+):
+    """创建长期代课"""
+    replace = await service.create_replace(data)
+    return success(data=ReplaceResponse.model_validate(replace).model_dump())
 
-    @router.post("/plans", response_model=ApiResponse)
-    async def create_scheduling_plan(request: SchedulingPlanRequest):
-        """创建排课计划"""
-        return create_plan(request)
 
-    @router.post("/plans/{plan_id}/optimize", response_model=ApiResponse)
-    async def optimize_scheduling_plan(
-        plan_id: int,
-        max_iterations: int = Query(1000, ge=100, le=10000, description="最大迭代次数"),
-        time_limit: float = Query(60.0, ge=10.0, le=300.0, description="时间限制(秒)"),
-    ):
-        """优化排课计划"""
-        return optimize_plan(plan_id, max_iterations, time_limit)
+# ============ 约束管理 ============
 
-    @router.get("/plans/{plan_id}/conflicts", response_model=ApiResponse)
-    async def check_conflicts(plan_id: int):
-        """检测排课冲突"""
-        return detect_conflicts(plan_id)
+@router.get("/constraints", response_model=dict)
+async def list_constraints(
+    semester_id: Optional[str] = Query(None, description="学期ID"),
+    constraint_type: Optional[str] = Query(None, description="约束类型"),
+    service: SchedulingDBService = Depends(get_service)
+):
+    """获取约束列表"""
+    constraints = await service.get_constraints(semester_id, constraint_type)
+    items = [ConstraintResponse.model_validate(c).model_dump() for c in constraints]
+    return success(data={"constraints": items, "total": len(items)})
 
-    @router.post("/plans/{plan_id}/adjust", response_model=ApiResponse)
-    async def adjust_course_assignment(
-        plan_id: int,
-        assignment_id: int = Body(..., embed=True),
-        new_day: int = Body(..., embed=True),
-        new_period: int = Body(..., embed=True),
-        new_classroom_id: Optional[int] = Body(None, embed=True),
-    ):
-        """手动调整课程分配"""
-        return adjust_assignment(plan_id, assignment_id, new_day, new_period, new_classroom_id)
 
-    @router.post("/plans/{plan_id}/publish", response_model=ApiResponse)
-    async def publish_scheduling_plan(plan_id: int):
-        """发布排课计划"""
-        return publish_plan(plan_id)
+@router.post("/constraints", response_model=dict)
+async def create_constraint(
+    data: ConstraintCreate,
+    service: SchedulingDBService = Depends(get_service)
+):
+    """创建约束"""
+    constraint = await service.create_constraint(data)
+    return success(data=ConstraintResponse.model_validate(constraint).model_dump())
 
-    @router.get("/plans/{plan_id}/table", response_model=ApiResponse)
-    async def get_schedule_table(
-        plan_id: int,
-        class_id: Optional[int] = Query(None, description="班级ID"),
-        teacher_id: Optional[int] = Query(None, description="教师ID"),
-    ):
-        """获取课表"""
-        return get_schedule_table(plan_id, class_id, teacher_id)
 
-    @router.get("/plans/{plan_id}/summary", response_model=ApiResponse)
-    async def get_summary(plan_id: int):
-        """获取排课汇总"""
-        return get_schedule_summary(plan_id)
+# ============ 辅助接口 ============
 
-    @router.get("/classes", response_model=ApiResponse)
-    async def list_classes():
-        """获取班级列表"""
-        return {
-            "success": True,
-            "message": "获取成功",
-            "data": MOCK_CLASSES
-        }
+@router.get("/classes", response_model=dict)
+async def list_classes_for_scheduling(
+    service: SchedulingDBService = Depends(get_service)
+):
+    """获取班级列表（用于排课）"""
+    from sqlalchemy import select
+    from app.models.class_model import Class
+    from app.models.grade_model import Grade
 
-    @router.get("/courses", response_model=ApiResponse)
-    async def list_courses():
-        """获取课程列表"""
-        return {
-            "success": True,
-            "message": "获取成功",
-            "data": MOCK_COURSES
-        }
+    result = await service.db.execute(
+        select(Class, Grade.grade_level)
+        .outerjoin(Grade, Class.grade_id == Grade.id)
+        .order_by(Class.name)
+    )
+    rows = result.all()
+    items = [{
+        "id": str(cls.id),
+        "name": cls.name,
+        "grade_level": grade_level if rows else None,
+    } for cls, grade_level in rows]
+    return success(data={"classes": items, "total": len(items)})
 
-    @router.get("/teachers", response_model=ApiResponse)
-    async def list_teachers():
-        """获取教师列表"""
-        return {
-            "success": True,
-            "message": "获取成功",
-            "data": MOCK_TEACHERS
-        }
 
-    @router.get("/classrooms", response_model=ApiResponse)
-    async def list_classrooms():
-        """获取教室列表"""
-        return {
-            "success": True,
-            "message": "获取成功",
-            "data": MOCK_CLASSROOMS
-        }
+@router.get("/courses", response_model=dict)
+async def list_courses_for_scheduling(
+    service: SchedulingDBService = Depends(get_service)
+):
+    """获取课程列表（用于排课）"""
+    from sqlalchemy import select
+    from app.models.course import Course
+
+    result = await service.db.execute(
+        select(Course).order_by(Course.name)
+    )
+    courses = result.scalars().all()
+    items = [{
+        "id": str(c.id),
+        "name": c.name,
+        "code": c.code,
+        "teacher_id": str(c.teacher_id) if c.teacher_id else None,
+        "teacher_ids": [str(t) for t in (c.teacher_ids or [])],
+        "grade_id": str(c.grade_id) if c.grade_id else None,
+        "grade_levels": list(c.grade_levels) if c.grade_levels else [],
+        "semester": c.semester,
+        "course_type": c.course_type.value if hasattr(c.course_type, 'value') else str(c.course_type),
+    } for c in courses]
+    return success(data={"courses": items, "total": len(items)})
+
+
+@router.get("/teachers", response_model=dict)
+async def list_teachers_for_scheduling(
+    service: SchedulingDBService = Depends(get_service)
+):
+    """获取教师列表（用于排课）"""
+    from sqlalchemy import select
+    from app.models.user import User
+    from app.models.teacher_profile import TeacherProfile
+
+    result = await service.db.execute(
+        select(User, TeacherProfile)
+        .join(TeacherProfile, User.id == TeacherProfile.user_id)
+        .order_by(User.real_name)
+    )
+    rows = result.all()
+    items = [{"id": str(u.id), "name": u.real_name or u.username} for u, _ in rows]
+    return success(data={"teachers": items, "total": len(items)})
+
+
+@router.get("/classrooms", response_model=dict)
+async def list_classrooms_for_scheduling(
+    service: SchedulingDBService = Depends(get_service)
+):
+    """获取教室列表（用于排课）"""
+    from sqlalchemy import select
+    from app.models.schedule import Classroom
+
+    result = await service.db.execute(
+        select(Classroom).where(Classroom.status == "active").order_by(Classroom.building, Classroom.room_no)
+    )
+    classrooms = result.scalars().all()
+    items = [{"id": str(c.id), "name": f"{c.building or ''}{c.room_no}", "capacity": c.capacity} for c in classrooms]
+    return success(data={"classrooms": items, "total": len(items)})

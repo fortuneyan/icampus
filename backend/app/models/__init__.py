@@ -1,6 +1,6 @@
 from app.models.user import User
 from app.models.department import Department
-from app.models.role import Role, Permission, Menu
+from app.models.role import Role, Permission, Menu, UserRole
 from app.models.student import Student
 from app.models.grade_model import Grade
 from app.models.class_model import Class
@@ -50,12 +50,39 @@ from app.models.homework import Homework, HomeworkSubmission, WrongQuestion, Hom
 from app.models.enrollment_change import EnrollmentChange
 from app.models.grade_course import GradeCourseSettings, CourseSelection, CourseType, SelectionTargetType
 
+# 智能排课模块模型
+from app.models.scheduling_models import (
+    SchCycle,
+    SchSemester,
+    SchCalendarMap,
+    SchTemplate,
+    SchPeriod,
+    SchPlan,
+    SchResult,
+    SchPatch,
+    SchConstraint,
+    SchEvent,
+    SchPlanTeacherReplace,
+)
+
+# OA模块模型
+from app.models.oa.workflow import (
+    OaWorkflowDefinition,
+    OaWorkflowNode,
+    OaWorkflowInstance,
+    OaWorkflowTask,
+    OaWorkflowVariable,
+    OaWorkflowCC,
+)
+from app.models.oa.announcement_category import AnnouncementCategory
+
 __all__ = [
     "User",
     "Department",
     "Role",
     "Permission",
     "Menu",
+    "UserRole",
     "Student",
     "Grade",
     "Class",
@@ -120,4 +147,25 @@ __all__ = [
     "CourseSelection",
     "CourseType",
     "SelectionTargetType",
+    # 智能排课模块
+    "SchCycle",
+    "SchSemester",
+    "SchCalendarMap",
+    "SchTemplate",
+    "SchPeriod",
+    "SchPlan",
+    "SchResult",
+    "SchPatch",
+    "SchConstraint",
+    "SchEvent",
+    "SchPlanTeacherReplace",
+    # OA Workflow
+    "OaWorkflowDefinition",
+    "OaWorkflowNode",
+    "OaWorkflowInstance",
+    "OaWorkflowTask",
+    "OaWorkflowVariable",
+    "OaWorkflowCC",
+    # OA Announcement
+    "AnnouncementCategory",
 ]

@@ -121,6 +121,12 @@ const routes: RouteRecordRaw[] = [
         meta: { title: '课表管理', module: 'edu' },
       },
       {
+        path: '/edu/scheduling',
+        name: 'Scheduling',
+        component: () => import('@/views/edu/Scheduling.vue'),
+        meta: { title: '智能排课', module: 'edu' },
+      },
+      {
         path: '/edu/classrooms',
         name: 'Classrooms',
         component: () => import('@/views/edu/Classroom.vue'),
@@ -282,6 +288,50 @@ const routes: RouteRecordRaw[] = [
         name: 'TeacherAssistant',
         component: () => import('@/views/ai/TeacherAssistant.vue'),
         meta: { title: '教师助手', module: 'ai', aiFeature: true },
+      },
+
+      // ==================== OA 办公管理 ====================
+      {
+        path: '/oa/workflows',
+        name: 'WorkflowList',
+        component: () => import('@/views/oa/workflows/WorkflowList.vue'),
+        meta: { title: '工作流管理', module: 'oa' },
+      },
+      {
+        path: '/oa/announcements',
+        name: 'AnnouncementList',
+        component: () => import('@/views/oa/announcements/AnnouncementList.vue'),
+        meta: { title: '公告管理', module: 'oa' },
+      },
+      {
+        path: '/oa/room-booking',
+        name: 'RoomBooking',
+        component: () => import('@/views/oa/rooms/RoomBooking.vue'),
+        meta: { title: '教室预约', module: 'oa' },
+      },
+      {
+        path: '/oa/assets',
+        name: 'AssetList',
+        component: () => import('@/views/oa/assets/AssetList.vue'),
+        meta: { title: '资产管理', module: 'oa' },
+      },
+      {
+        path: '/oa/worklogs',
+        name: 'WorklogList',
+        component: () => import('@/views/oa/worklogs/WorklogList.vue'),
+        meta: { title: '工作日志', module: 'oa' },
+      },
+      {
+        path: '/oa/task-boards',
+        name: 'TaskBoards',
+        component: () => import('@/views/oa/tasks/TaskBoard.vue'),
+        meta: { title: '任务看板', module: 'oa' },
+      },
+      {
+        path: '/oa/task-board',
+        name: 'TaskBoard',
+        component: () => import('@/views/oa/tasks/TaskBoard.vue'),
+        meta: { title: '任务看板', module: 'oa' },
       },
     ],
   },

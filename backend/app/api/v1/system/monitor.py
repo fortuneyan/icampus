@@ -9,7 +9,7 @@ from datetime import datetime
 from typing import Optional
 
 from fastapi import APIRouter, Depends
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -17,6 +17,13 @@ from app.core.database import get_db
 from app.core.security import get_current_user
 from app.models.user import User
 from app.schemas.response import success
+
+# 尝试导入redis
+try:
+    import redis.asyncio as aioredis
+    REDIS_AVAILABLE = True
+except ImportError:
+    REDIS_AVAILABLE = False
 
 
 # ==================== Schema 定义 ====================
@@ -69,6 +76,18 @@ class HealthStatus(BaseModel):
     overall: str  # healthy / degraded / unhealthy
     checks: dict
     timestamp: str
+
+
+class CacheStatus(BaseModel):
+    """缓存状态模型"""
+    available: bool
+    used_memory_mb: Optional[float] = None
+    total_keys: Optional[int] = None
+    hits: Optional[int] = None
+    misses: Optional[int] = None
+    hit_rate: Optional[float] = None
+    connected_clients: Optional[int] = None
+    message: Optional[str] = None
 
 
 # ==================== 辅助函数 ====================
@@ -327,3 +346,58 @@ async def get_process_info():
         "create_time": datetime.fromtimestamp(process.create_time()).isoformat(),
         "status": process.status()
     })
+
+
+@router.get("/cache")
+async def get_cache_info():
+    """
+    获取Redis缓存状态
+    - 连接状态
+    - 内存使用量
+    - 键数量
+    - 命中/未命中统计
+    - 命中率
+    """
+    if not REDIS_AVAILABLE:
+        return success({
+            "available": False,
+            "message": "Redis 未安装或无法连接"
+        })
+
+    try:
+        # 尝试连接Redis（使用默认配置）
+        r = aioredis.Redis(host='localhost', port=6379, decode_responses=True)
+        info = await r.info()
+        await r.close()
+
+        # 提取关键指标
+        used_memory = int(info.get('used_memory', 0))
+        used_memory_mb = round(used_memory / (1024 * 1024), 2)
+
+        total_keys = 0
+        for key, value in info.items():
+            if key.startswith('db') and isinstance(value, dict):
+                total_keys += value.get('keys', 0)
+
+        hits = int(info.get('keyspace_hits', 0))
+        misses = int(info.get('keyspace_misses', 0))
+        total_ops = hits + misses
+        hit_rate = round(hits / total_ops * 100, 2) if total_ops > 0 else 0.0
+
+        connected_clients = int(info.get('connected_clients', 0))
+
+        return success({
+            "available": True,
+            "used_memory_mb": used_memory_mb,
+            "total_keys": total_keys,
+            "hits": hits,
+            "misses": misses,
+            "hit_rate": hit_rate,
+            "connected_clients": connected_clients
+        })
+    except Exception as e:
+        # 优雅降级：Redis不可用时返回可用标志
+        return success({
+            "available": False,
+            "message": f"Redis 连接失败: {str(e)}"
+        })

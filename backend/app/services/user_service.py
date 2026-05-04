@@ -5,11 +5,12 @@
 from typing import Optional, List
 from uuid import UUID
 from datetime import datetime
-from sqlalchemy import select, and_, or_
+from sqlalchemy import select, and_, or_, delete
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.user import User
 from app.models.department import Department
+from app.models.role import Role, UserRole
 from app.core.security import get_password_hash, verify_password
 from app.core.exceptions import NotFoundException, ConflictException
 from app.schemas.user import UserCreate, UserUpdate
@@ -43,9 +44,15 @@ class UserService(BaseService[User]):
         if data.phone and await self.get_by_phone(data.phone):
             raise ConflictException("手机号已被使用")
 
-        user_data = data.model_dump()
+        user_data = data.model_dump(exclude={"role_ids"})
         user_data["password_hash"] = get_password_hash(user_data.pop("password"))
-        return await self.create(user_data)
+        user = await self.create(user_data)
+
+        # 分配角色
+        if data.role_ids:
+            await self.assign_roles(user.id, data.role_ids)
+
+        return user
 
     async def update_user(self, user_id: UUID, data: UserUpdate) -> User:
         """更新用户"""
@@ -53,7 +60,7 @@ class UserService(BaseService[User]):
         if not user:
             raise NotFoundException("用户不存在")
 
-        update_data = data.model_dump(exclude_unset=True)
+        update_data = data.model_dump(exclude_unset=True, exclude={"role_ids"})
 
         if data.email and data.email != user.email:
             if await self.get_by_email(data.email):
@@ -63,7 +70,40 @@ class UserService(BaseService[User]):
             if await self.get_by_phone(data.phone):
                 raise ConflictException("手机号已被使用")
 
-        return await self.update(user_id, update_data)
+        if update_data:
+            user = await self.update(user_id, update_data)
+
+        # 更新角色（如果请求中包含 role_ids 字段，即使是空列表也处理）
+        if data.role_ids is not None:
+            await self.assign_roles(user_id, data.role_ids)
+
+        return user
+
+    async def assign_roles(self, user_id: UUID, role_ids: List[UUID]) -> None:
+        """重置用户角色（先清空再写入）"""
+        # 删除现有角色
+        await self.db.execute(
+            delete(UserRole).where(UserRole.user_id == user_id)
+        )
+        # 写入新角色
+        for role_id in role_ids:
+            # 验证角色存在
+            result = await self.db.execute(
+                select(Role).where(Role.id == role_id, Role.status == "active")
+            )
+            if result.scalar_one_or_none():
+                self.db.add(UserRole(user_id=user_id, role_id=role_id))
+        await self.db.commit()
+
+    async def get_user_roles(self, user_id: UUID) -> List[Role]:
+        """获取用户的角色列表"""
+        result = await self.db.execute(
+            select(Role)
+            .join(UserRole, UserRole.role_id == Role.id)
+            .where(UserRole.user_id == user_id, Role.status == "active")
+            .order_by(Role.level)
+        )
+        return result.scalars().all()
 
     async def reset_password(self, user_id: UUID, new_password: str) -> User:
         """重置密码"""
@@ -135,9 +175,6 @@ class UserService(BaseService[User]):
         """获取用户下拉选项"""
         filters = [User.status == "active", User.deleted_at.is_(None)]
         if role:
-            from app.models.role import Role
-            from sqlalchemy import select
-
             result = await self.db.execute(
                 select(User).where(User.status == "active", User.deleted_at.is_(None))
             )

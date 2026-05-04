@@ -8,6 +8,12 @@ export interface UserParams {
   page_size?: number
 }
 
+export interface RoleSimple {
+  id: string
+  code: string
+  name: string
+}
+
 export interface UserForm {
   username: string
   email?: string
@@ -18,6 +24,7 @@ export interface UserForm {
   position?: string
   gender?: string
   status?: string
+  role_ids?: string[]
 }
 
 export function getUserList(params: UserParams) {
@@ -54,4 +61,12 @@ export function updateUserStatus(id: string, status: string) {
 
 export function changePassword(old_password: string, new_password: string) {
   return request.put('/system/users/change-password', { old_password, new_password })
+}
+
+export function getUserRoles(id: string) {
+  return request.get(`/system/users/${id}/roles`)
+}
+
+export function assignUserRoles(id: string, roleIds: string[]) {
+  return request.put(`/system/users/${id}/roles`, { role_ids: roleIds })
 }

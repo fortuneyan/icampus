@@ -13,9 +13,15 @@ export default defineConfig({
     port: 5173,
     proxy: {
       '/api': {
-        // localhost 不能访问,原因未解决 -> 127.0.0.1
         target: 'http://127.0.0.1:8000',
-        changeOrigin: true
+        changeOrigin: true,
+        // 避免 307 重定向丢失 Authorization header
+        configure: (proxy) => {
+          proxy.on('proxyRes', (proxyRes) => {
+            // 清除可能会导致重定向的响应头
+            delete proxyRes.headers['location'];
+          });
+        }
       },
       '/deeptutor': {
         target: 'http://127.0.0.1:5183',

@@ -27,6 +27,20 @@
         <el-table-column prop="email" label="邮箱" width="180" />
         <el-table-column prop="phone" label="手机号" width="130" />
         <el-table-column prop="position" label="职位" width="120" />
+        <el-table-column label="角色" min-width="160">
+          <template #default="{ row }">
+            <el-tag
+              v-for="role in (row.roles || [])"
+              :key="role.id"
+              type="primary"
+              size="small"
+              class="role-tag"
+            >
+              {{ role.name }}
+            </el-tag>
+            <span v-if="!row.roles || row.roles.length === 0" class="no-role">—</span>
+          </template>
+        </el-table-column>
         <el-table-column prop="status" label="状态" width="80">
           <template #default="{ row }">
             <el-tag :type="row.status === 'active' ? 'success' : 'danger'">
@@ -77,6 +91,25 @@
         <el-form-item label="职位" prop="position">
           <el-input v-model="formData.position" />
         </el-form-item>
+        <el-form-item label="角色" prop="role_ids">
+          <el-select
+            v-model="formData.role_ids"
+            multiple
+            placeholder="请选择角色（可多选）"
+            style="width: 100%"
+            :loading="rolesLoading"
+          >
+            <el-option
+              v-for="role in roleOptions"
+              :key="role.id"
+              :label="role.name"
+              :value="role.id"
+            >
+              <span>{{ role.name }}</span>
+              <span class="role-code"> ({{ role.code }})</span>
+            </el-option>
+          </el-select>
+        </el-form-item>
         <el-form-item label="状态" prop="status">
           <el-select v-model="formData.status">
             <el-option label="正常" value="active" />
@@ -86,7 +119,7 @@
       </el-form>
       <template #footer>
         <el-button @click="dialogVisible = false">取消</el-button>
-        <el-button type="primary" @click="handleSubmit">确定</el-button>
+        <el-button type="primary" @click="handleSubmit" :loading="submitting">确定</el-button>
       </template>
     </el-dialog>
   </div>
@@ -97,16 +130,32 @@ import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import type { FormInstance } from 'element-plus'
 import { getUserList, createUser, updateUser, deleteUser, resetPassword } from '@/api/system/user'
+import { getRoleList } from '@/api/system/role'
 
 const loading = ref(false)
-const tableData = ref([])
+const submitting = ref(false)
+const rolesLoading = ref(false)
+const tableData = ref<any[]>([])
 const searchForm = reactive({ keyword: '', status: '' })
 const pagination = reactive({ page: 1, pageSize: 20, total: 0 })
+
+// 角色选项
+const roleOptions = ref<{ id: string; code: string; name: string }[]>([])
 
 const dialogVisible = ref(false)
 const dialogTitle = ref('')
 const formRef = ref<FormInstance>()
-const formData = reactive<any>({ id: '', username: '', password: '', real_name: '', email: '', phone: '', position: '', status: 'active' })
+const formData = reactive<any>({
+  id: '',
+  username: '',
+  password: '',
+  real_name: '',
+  email: '',
+  phone: '',
+  position: '',
+  status: 'active',
+  role_ids: []
+})
 
 const formRules = {
   username: [{ required: true, message: '请输入用户名', trigger: 'blur' }],
@@ -127,6 +176,22 @@ const fetchData = async () => {
   }
 }
 
+const fetchRoleOptions = async () => {
+  rolesLoading.value = true
+  try {
+    const res = await getRoleList({ page: 1, page_size: 100, status: 'active' })
+    roleOptions.value = (res.data.items || []).map((r: any) => ({
+      id: r.id,
+      code: r.code,
+      name: r.name
+    }))
+  } catch (e) {
+    console.error('获取角色列表失败', e)
+  } finally {
+    rolesLoading.value = false
+  }
+}
+
 const handleSearch = () => {
   pagination.page = 1
   fetchData()
@@ -139,13 +204,17 @@ const handleReset = () => {
 }
 
 const handleAdd = () => {
-  Object.assign(formData, { id: '', username: '', password: '', real_name: '', email: '', phone: '', position: '', status: 'active' })
+  Object.assign(formData, {
+    id: '', username: '', password: '', real_name: '',
+    email: '', phone: '', position: '', status: 'active', role_ids: []
+  })
   dialogTitle.value = '新增用户'
   dialogVisible.value = true
 }
 
 const handleEdit = (row: any) => {
-  Object.assign(formData, { ...row, password: '' })
+  const roleIds = (row.roles || []).map((r: any) => r.id)
+  Object.assign(formData, { ...row, password: '', role_ids: roleIds })
   dialogTitle.value = '编辑用户'
   dialogVisible.value = true
 }
@@ -153,24 +222,41 @@ const handleEdit = (row: any) => {
 const handleSubmit = async () => {
   if (!formRef.value) return
   await formRef.value.validate()
+  submitting.value = true
   try {
+    const payload = {
+      username: formData.username,
+      email: formData.email || undefined,
+      phone: formData.phone || undefined,
+      real_name: formData.real_name || undefined,
+      position: formData.position || undefined,
+      status: formData.status,
+      role_ids: formData.role_ids?.length ? formData.role_ids : [],
+      ...(formData.id ? {} : { password: formData.password })
+    }
     if (formData.id) {
-      await updateUser(formData.id, formData)
+      await updateUser(formData.id, payload)
       ElMessage.success('更新成功')
     } else {
-      await createUser(formData)
+      await createUser(payload as any)
       ElMessage.success('创建成功')
     }
     dialogVisible.value = false
     fetchData()
   } catch (e: any) {
     ElMessage.error(e.message || '操作失败')
+  } finally {
+    submitting.value = false
   }
 }
 
 const handleResetPwd = async (row: any) => {
   try {
-    const { value } = await ElMessageBox.prompt('请输入新密码', '重置密码', { confirmButtonText: '确定', cancelButtonText: '取消' })
+    const { value } = await ElMessageBox.prompt('请输入新密码', '重置密码', {
+      confirmButtonText: '确定',
+      cancelButtonText: '取消',
+      inputType: 'password'
+    })
     if (!value) {
       ElMessage.warning('密码不能为空')
       return
@@ -195,6 +281,7 @@ const handleDelete = async (row: any) => {
 
 onMounted(() => {
   fetchData()
+  fetchRoleOptions()
 })
 </script>
 
@@ -207,6 +294,19 @@ onMounted(() => {
     margin-top: 20px;
     display: flex;
     justify-content: flex-end;
+  }
+  .role-tag {
+    margin-right: 4px;
+    margin-bottom: 2px;
+  }
+  .no-role {
+    color: #999;
+    font-size: 13px;
+  }
+  .role-code {
+    color: #999;
+    font-size: 12px;
+    margin-left: 4px;
   }
 }
 </style>
