@@ -138,7 +138,11 @@
                 <el-tag v-else-if="row.status === 'enrolled'" type="success">已入学</el-tag>
               </template>
             </el-table-column>
-            <el-table-column prop="created_at" label="报名时间" width="180" />
+            <el-table-column prop="created_at" label="报名时间" width="160">
+              <template #default="{ row }">
+                {{ formatDate(row.created_at) }}
+              </template>
+            </el-table-column>
             <el-table-column label="操作" width="280" fixed="right">
               <template #default="{ row }">
                 <el-button type="primary" link @click="handleViewApplicant(row)">查看</el-button>

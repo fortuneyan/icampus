@@ -248,7 +248,7 @@
                 {{ formatFileSize(row.size) }}
               </template>
             </el-table-column>
-            <el-table-column label="上传时间" prop="uploaded_at" width="180">
+            <el-table-column label="上传时间" prop="uploaded_at" width="160">
               <template #default="{ row }">
                 {{ formatDateTime(row.uploaded_at) }}
               </template>

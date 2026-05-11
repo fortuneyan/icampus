@@ -24,7 +24,11 @@
         <el-table-column prop="path" label="路径" min-width="150" />
         <el-table-column prop="ip_address" label="IP" width="120" />
         <el-table-column prop="status_code" label="状态" width="60" />
-        <el-table-column prop="created_at" label="时间" width="180" />
+        <el-table-column prop="created_at" label="时间" width="160">
+          <template #default="{ row }">
+            {{ formatDate(row.created_at) }}
+          </template>
+        </el-table-column>
       </el-table>
       <div class="pagination">
         <el-pagination v-model:current-page="pagination.page" v-model:page-size="pagination.pageSize" :total="pagination.total" :page-sizes="[10, 20, 50]" layout="total, sizes, prev, pager, next" @size-change="fetchData" @current-change="fetchData" />
@@ -43,6 +47,18 @@ const tableData = ref<any[]>([])
 const loading = ref(false)
 
 const fetchData = async () => { loading.value = true; try { const res = await getOperationLogs({ module: searchForm.module, page: pagination.page, page_size: pagination.pageSize }); if (res.data?.items) { tableData.value = res.data.items; pagination.total = res.data.total || 0 } } catch (e) { console.error(e) } finally { loading.value = false } }
+
+const formatDate = (val: string) => {
+  if (!val) return '-'
+  const date = new Date(val)
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  const hours = String(date.getHours()).padStart(2, '0')
+  const minutes = String(date.getMinutes()).padStart(2, '0')
+  return `${year}-${month}-${day} ${hours}:${minutes}`
+}
+
 const handleSearch = () => { pagination.page = 1; fetchData() }
 
 onMounted(() => { fetchData() })

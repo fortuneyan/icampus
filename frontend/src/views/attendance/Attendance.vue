@@ -38,7 +38,11 @@
             <el-tag :type="row.status === 'normal' ? 'success' : 'danger'">{{ row.status === 'normal' ? '正常' : '异常' }}</el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="created_at" label="记录时间" width="180" />
+        <el-table-column prop="created_at" label="记录时间" width="160">
+          <template #default="{ row }">
+            {{ formatDate(row.created_at) }}
+          </template>
+        </el-table-column>
       </el-table>
 
       <div class="pagination">
@@ -104,6 +108,17 @@ const leaveRules = {
 
 const getTypeName = (type: string) => ({ normal: '出勤', late: '迟到', leave: '请假', absent: '缺勤' }[type] || type)
 const getTypeTag = (type: string) => ({ normal: 'success', late: 'warning', leave: 'info', absent: 'danger' }[type] || 'info')
+
+const formatDate = (val: string) => {
+  if (!val) return '-'
+  const date = new Date(val)
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  const hours = String(date.getHours()).padStart(2, '0')
+  const minutes = String(date.getMinutes()).padStart(2, '0')
+  return `${year}-${month}-${day} ${hours}:${minutes}`
+}
 
 const fetchData = async () => {
   loading.value = true

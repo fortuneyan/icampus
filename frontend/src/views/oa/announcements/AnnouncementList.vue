@@ -58,7 +58,11 @@
         </el-table-column>
         <el-table-column prop="view_count" label="阅读" width="70" align="center" />
         <el-table-column prop="publisher_name" label="发布人" width="100" />
-        <el-table-column prop="published_at" label="发布时间" width="160" />
+        <el-table-column prop="published_at" label="发布时间" width="160">
+          <template #default="{ row }">
+            {{ formatDate(row.published_at) }}
+          </template>
+        </el-table-column>
         <el-table-column label="操作" width="220" fixed="right">
           <template #default="{ row }">
             <el-button link type="primary" size="small" @click="handleView(row)">查看</el-button>
@@ -127,6 +131,17 @@ const getPriorityLabel = (val: string) => priorityOptions.find(o => o.value === 
 const getPriorityType = (val: string) => priorityOptions.find(o => o.value === val)?.type || 'info'
 const getStatusLabel = (val: string) => statusOptions.find(o => o.value === val)?.label || val
 const getStatusType = (val: string) => statusOptions.find(o => o.value === val)?.type || 'info'
+
+const formatDate = (val: string) => {
+  if (!val) return '-'
+  const date = new Date(val)
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  const hours = String(date.getHours()).padStart(2, '0')
+  const minutes = String(date.getMinutes()).padStart(2, '0')
+  return `${year}-${month}-${day} ${hours}:${minutes}`
+}
 
 const loadData = async () => {
   loading.value = true

@@ -44,7 +44,11 @@
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="created_at" label="上传时间" width="180" />
+        <el-table-column prop="created_at" label="上传时间" width="160">
+          <template #default="{ row }">
+            {{ formatDate(row.created_at) }}
+          </template>
+        </el-table-column>
         <el-table-column label="操作" width="200" fixed="right">
           <template #default="{ row }">
             <el-button type="primary" link @click="handleView(row)">查看</el-button>
@@ -146,6 +150,17 @@ const formRules = {
 }
 
 const getTypeName = (type: string) => ({ video: '视频', document: '文档', image: '图片', audio: '音频' }[type] || type)
+
+const formatDate = (val: string) => {
+  if (!val) return '-'
+  const date = new Date(val)
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  const hours = String(date.getHours()).padStart(2, '0')
+  const minutes = String(date.getMinutes()).padStart(2, '0')
+  return `${year}-${month}-${day} ${hours}:${minutes}`
+}
 
 const fetchData = async () => {
   loading.value = true

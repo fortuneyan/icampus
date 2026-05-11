@@ -103,7 +103,11 @@
             </el-table-column>
             <el-table-column prop="operator_name" label="操作人" width="100" />
             <el-table-column prop="purpose" label="用途/说明" min-width="180" show-overflow-tooltip />
-            <el-table-column prop="created_at" label="操作时间" width="170" />
+            <el-table-column prop="created_at" label="操作时间" width="160">
+              <template #default="{ row }">
+                {{ formatDate(row.created_at) }}
+              </template>
+            </el-table-column>
           </el-table>
           <div class="pagination" v-if="historyTotal > 0">
             <el-pagination
@@ -182,6 +186,17 @@ const operationOptions = [
 
 const getOperationLabel = (val: string) => operationOptions.find(o => o.value === val)?.label || val
 const getOperationType = (val: string) => operationOptions.find(o => o.value === val)?.type || 'info'
+
+const formatDate = (val: string) => {
+  if (!val) return '-'
+  const date = new Date(val)
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  const hours = String(date.getHours()).padStart(2, '0')
+  const minutes = String(date.getMinutes()).padStart(2, '0')
+  return `${year}-${month}-${day} ${hours}:${minutes}`
+}
 
 // 图片展示
 const imageUrls = computed(() => {

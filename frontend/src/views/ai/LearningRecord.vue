@@ -96,7 +96,11 @@
             {{ row.score || '-' }}
           </template>
         </el-table-column>
-        <el-table-column prop="created_at" label="学习时间" width="180" />
+        <el-table-column prop="created_at" label="学习时间" width="160">
+          <template #default="{ row }">
+            {{ formatDate(row.created_at) }}
+          </template>
+        </el-table-column>
       </el-table>
 
       <div class="pagination">
@@ -178,6 +182,17 @@ const formRules = {
 const getTypeText = (v: string) => ({ video: '视频', document: '文档', courseware: '课件', homework: '作业' }[v] || v)
 const getActionText = (v: string) => ({ view: '观看', download: '下载', favorite: '收藏', complete: '完成' }[v] || v)
 const getActionTypeTag = (v: string) => ({ view: 'primary', download: 'success', favorite: 'warning', complete: 'info' }[v] || 'info')
+
+const formatDate = (val: string) => {
+  if (!val) return '-'
+  const date = new Date(val)
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  const hours = String(date.getHours()).padStart(2, '0')
+  const minutes = String(date.getMinutes()).padStart(2, '0')
+  return `${year}-${month}-${day} ${hours}:${minutes}`
+}
 
 const fetchData = async () => {
   loading.value = true

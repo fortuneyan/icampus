@@ -113,8 +113,8 @@
                 </el-tag>
               </template>
             </el-table-column>
-            <el-table-column prop="selected_at" label="选课时间" width="180">
-              <template slot-scope="{ row }">
+            <el-table-column prop="selected_at" label="选课时间" width="160">
+              <template #default="{ row }">
                 {{ formatDateTime(row.selected_at) }}
               </template>
             </el-table-column>

@@ -47,7 +47,11 @@
             <el-tag v-else-if="row.status === 'published'" type="success">已发布</el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="created_at" label="创建时间" width="180" />
+        <el-table-column prop="created_at" label="创建时间" width="160">
+          <template #default="{ row }">
+            {{ formatDate(row.created_at) }}
+          </template>
+        </el-table-column>
         <el-table-column label="操作" width="180" fixed="right">
           <template #default="{ row }">
             <el-button type="primary" link @click="handleEdit(row)">编辑</el-button>
@@ -153,6 +157,17 @@ const formData = reactive<any>({
 const formRules = {
   title: [{ required: true, message: '请输入通知标题', trigger: 'blur' }],
   content: [{ required: true, message: '请输入通知内容', trigger: 'blur' }]
+}
+
+const formatDate = (val: string) => {
+  if (!val) return '-'
+  const date = new Date(val)
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  const hours = String(date.getHours()).padStart(2, '0')
+  const minutes = String(date.getMinutes()).padStart(2, '0')
+  return `${year}-${month}-${day} ${hours}:${minutes}`
 }
 
 const fetchData = async () => {

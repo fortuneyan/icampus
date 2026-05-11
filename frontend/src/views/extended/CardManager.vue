@@ -75,7 +75,11 @@
           </el-table-column>
           <el-table-column prop="merchant_name" label="商户" width="150" />
           <el-table-column prop="location" label="地点" width="150" />
-          <el-table-column prop="created_at" label="时间" width="180" />
+          <el-table-column prop="created_at" label="时间" width="160">
+            <template #default="{ row }">
+              {{ formatDate(row.created_at) }}
+            </template>
+          </el-table-column>
         </el-table>
       </el-tab-pane>
       
@@ -96,7 +100,11 @@
               </el-tag>
             </template>
           </el-table-column>
-          <el-table-column prop="created_at" label="时间" width="180" />
+          <el-table-column prop="created_at" label="时间" width="160">
+            <template #default="{ row }">
+              {{ formatDate(row.created_at) }}
+            </template>
+          </el-table-column>
         </el-table>
       </el-tab-pane>
     </el-tabs>
@@ -190,6 +198,17 @@ const getCardStatusType = (status: string) => {
     disabled: 'info'
   }
   return map[status] || 'info'
+}
+
+const formatDate = (val: string) => {
+  if (!val) return '-'
+  const date = new Date(val)
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  const hours = String(date.getHours()).padStart(2, '0')
+  const minutes = String(date.getMinutes()).padStart(2, '0')
+  return `${year}-${month}-${day} ${hours}:${minutes}`
 }
 
 onMounted(() => {

@@ -57,7 +57,11 @@
             <el-tag :type="getStatusType(row.status)">{{ getStatusLabel(row.status) }}</el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="created_at" label="申请时间" width="160" />
+        <el-table-column prop="created_at" label="申请时间" width="160">
+          <template #default="{ row }">
+            {{ formatDate(row.created_at) }}
+          </template>
+        </el-table-column>
         <el-table-column label="操作" width="140" fixed="right">
           <template #default="{ row }">
             <el-button link type="primary" size="small" @click="handleView(row)">查看</el-button>
@@ -155,7 +159,7 @@ const submitLoading = ref(false)
 const tableData = ref([])
 const roomList = ref([])
 const formRef = ref()
-const filteredTimeSlots = ref<string[]>([...timeSlots])
+const filteredTimeSlots = ref<string[]>([])
 
 const queryForm = reactive({
   date: '',
@@ -204,6 +208,17 @@ const statusOptions = [
 
 const getStatusLabel = (val: string) => statusOptions.find(o => o.value === val)?.label || val
 const getStatusType = (val: string) => statusOptions.find(o => o.value === val)?.type || 'info'
+
+const formatDate = (val: string) => {
+  if (!val) return '-'
+  const date = new Date(val)
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  const hours = String(date.getHours()).padStart(2, '0')
+  const minutes = String(date.getMinutes()).padStart(2, '0')
+  return `${year}-${month}-${day} ${hours}:${minutes}`
+}
 
 const disablePastDate = (date: Date) => {
   return date.getTime() < Date.now() - 86400000
