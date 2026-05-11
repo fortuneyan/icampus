@@ -40,7 +40,11 @@
         </el-table-column>
         <el-table-column prop="instance_count" label="实例数" width="80" align="center" />
         <el-table-column prop="version" label="版本" width="60" align="center" />
-        <el-table-column prop="created_at" label="创建时间" width="160" />
+        <el-table-column prop="created_at" label="创建时间" width="160">
+          <template #default="{ row }">
+            {{ formatDate(row.created_at) }}
+          </template>
+        </el-table-column>
         <el-table-column label="操作" width="200" fixed="right">
           <template #default="{ row }">
             <el-button link type="primary" size="small" @click="handleView(row)">查看</el-button>
@@ -112,6 +116,17 @@ const getStatusType = (val: string) => {
   return statusOptions.find(o => o.value === val)?.type || 'info'
 }
 
+const formatDate = (val: string) => {
+  if (!val) return '-'
+  const date = new Date(val)
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  const hours = String(date.getHours()).padStart(2, '0')
+  const minutes = String(date.getMinutes()).padStart(2, '0')
+  return `${year}-${month}-${day} ${hours}:${minutes}`
+}
+
 const loadData = async () => {
   loading.value = true
   try {
@@ -120,7 +135,7 @@ const loadData = async () => {
       page: pagination.page,
       pageSize: pagination.pageSize
     })
-    tableData.value = res.data?.list || []
+    tableData.value = res.data?.items || res.data?.list || []
     pagination.total = res.data?.total || 0
   } catch (error) {
     ElMessage.error('加载数据失败')

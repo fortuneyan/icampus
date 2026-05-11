@@ -4,7 +4,10 @@
       <template #header>
         <div class="card-header">
           <span>工作日志</span>
-          <el-button type="primary" @click="handleCreate">写日志</el-button>
+          <div class="header-actions">
+            <el-button @click="handleTeamLogs">团队日志</el-button>
+            <el-button type="primary" @click="handleCreate">写日志</el-button>
+          </div>
         </div>
       </template>
 
@@ -164,9 +167,12 @@
 
 <script setup lang="ts">
 import { ref, reactive, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Paperclip, View, StarFilled, ChatDotRound } from '@element-plus/icons-vue'
 import { worklogApi, worklogCategoryApi } from '@/api/oa/worklogs'
+
+const router = useRouter()
 
 const loading = ref(false)
 const dialogVisible = ref(false)
@@ -273,16 +279,15 @@ const handlePageChange = () => {
 }
 
 const handleCreate = () => {
-  dialogTitle.value = '写日志'
-  formData.id = ''
-  formData.log_date = new Date().toISOString().split('T')[0]
-  dialogVisible.value = true
+  router.push('/oa/worklogs/editor')
+}
+
+const handleTeamLogs = () => {
+  router.push('/oa/worklogs/team')
 }
 
 const handleEdit = (row: any) => {
-  dialogTitle.value = '编辑日志'
-  Object.assign(formData, row)
-  dialogVisible.value = true
+  router.push(`/oa/worklogs/${row.id}/edit`)
 }
 
 const handleDelete = async (row: any) => {
@@ -348,6 +353,11 @@ onMounted(() => {
   display: flex;
   justify-content: space-between;
   align-items: center;
+}
+
+.header-actions {
+  display: flex;
+  gap: 8px;
 }
 
 .query-form {

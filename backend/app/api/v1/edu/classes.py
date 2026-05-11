@@ -77,17 +77,18 @@ async def get_classes(
 
 @router.get("/options", response_model=dict)
 async def get_class_options(
-    grade_id: Optional[UUID] = Query(None),
+    grade_id: Optional[str] = Query(None, description="年级ID"),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
     """获取班级下拉选项"""
+    parsed_grade_id = _parse_uuid(grade_id)
     query = select(Class).where(Class.status == "active")
-    if grade_id:
-        query = query.where(Class.grade_id == grade_id)
+    if parsed_grade_id:
+        query = query.where(Class.grade_id == parsed_grade_id)
     result = await db.execute(query)
     classes = result.scalars().all()
-    options = [{"value": str(c.id), "label": c.name, "grade_id": str(c.grade_id) if c.grade_id else null} for c in classes]
+    options = [{"value": str(c.id), "label": c.name, "grade_id": str(c.grade_id) if c.grade_id else None} for c in classes]
     return success(options)
 
 

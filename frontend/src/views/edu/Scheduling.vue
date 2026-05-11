@@ -26,7 +26,7 @@
         <el-form-item label="周次组合">
           <div style="display: flex; gap: 8px; align-items: center;">
             <el-select v-model="filterForm.cycleId" placeholder="选择周次" style="width: 200px" @change="loadResults">
-              <el-option v-for="c in cycles" :key="c.id" :label="c.id" :value="c.id" />
+              <el-option v-for="c in cycles" :key="c.id" :label="`${c.start_date} ~ ${c.end_date}${c.is_current ? ' ★' : ''}`" :value="c.id" />
             </el-select>
             <el-button size="small" @click="showCycleDialog = true">
               <el-icon><Plus /></el-icon>
@@ -272,7 +272,7 @@
         </el-form-item>
         <el-form-item label="周次组合">
           <el-select v-model="planForm.cycle_id" style="width: 100%" placeholder="请选择周次组合">
-            <el-option v-for="c in cycles" :key="c.id" :label="c.id" :value="c.id" />
+            <el-option v-for="c in cycles" :key="c.id" :label="`${c.start_date} ~ ${c.end_date}${c.is_current ? ' ★' : ''}`" :value="c.id" />
           </el-select>
         </el-form-item>
         <el-form-item label="总课时">
@@ -363,7 +363,7 @@
         </el-form-item>
         <el-form-item label="周次组合">
           <el-select v-model="manualForm.cycle_id" style="width: 100%" placeholder="请选择周次组合">
-            <el-option v-for="c in cycles" :key="c.id" :label="c.id" :value="c.id" />
+            <el-option v-for="c in cycles" :key="c.id" :label="`${c.start_date} ~ ${c.end_date}${c.is_current ? ' ★' : ''}`" :value="c.id" />
           </el-select>
         </el-form-item>
         <el-form-item label="教室">

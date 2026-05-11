@@ -24,6 +24,7 @@ from app.schemas.user import (
 from app.schemas.response import success, page_response
 from app.services.user_service import UserService
 from app.services.dept_service import DepartmentService
+from app.utils.parsers import parse_uuid
 
 router = APIRouter()
 
@@ -44,7 +45,7 @@ async def _get_user_roles_data(user_id: UUID, db: AsyncSession) -> list:
 async def get_users(
     keyword: Optional[str] = Query(None, description="关键词"),
     status: Optional[str] = Query(None, description="状态"),
-    department_id: Optional[UUID] = Query(None, description="部门ID"),
+    department_id: Optional[str] = Query(None, description="部门ID"),
     page: int = Query(1, ge=1, description="页码"),
     page_size: int = Query(20, ge=1, le=100, description="每页条数"),
     db: AsyncSession = Depends(get_db),
@@ -53,7 +54,7 @@ async def get_users(
     """获取用户列表"""
     user_service = UserService(db)
     result = await user_service.search_users(
-        keyword, status, department_id, page, page_size
+        keyword, status, parse_uuid(department_id), page, page_size
     )
 
     items = []

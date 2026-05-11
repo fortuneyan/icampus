@@ -16,6 +16,7 @@ from app.models.role import Role, Permission, Menu
 from app.schemas.response import success, page_response
 from app.services.role_service import RoleService, PermissionService
 from app.services.menu_service import MenuService
+from app.utils.parsers import parse_uuid
 
 router = APIRouter()
 
@@ -97,6 +98,28 @@ async def get_roles(
     return page_response(items, result["total"], page, page_size)
 
 
+# ⚠️ 注意：/roles/options 必须在 /roles/{role_id} 之前定义
+# FastAPI 按定义顺序匹配路由，/{role_id} 会匹配所有 /roles/* 的请求
+@router.get("/roles/options", response_model=dict)
+async def get_role_options(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """获取角色下拉选项（用于工作流等场景）"""
+    from sqlalchemy import select
+    from app.models.role import Role
+
+    stmt = select(Role).where(Role.status == "active").order_by(Role.level, Role.name)
+    result = await db.execute(stmt)
+    roles = result.scalars().all()
+
+    options = [
+        {"id": str(r.id), "code": r.code, "name": r.name}
+        for r in roles
+    ]
+    return success(options)
+
+
 @router.get("/roles/{role_id}", response_model=dict)
 async def get_role(
     role_id: UUID,
@@ -164,28 +187,32 @@ async def delete_role(
     return success(message="角色删除成功")
 
 
+# ============================================================
+# 权限和菜单接口
+# ============================================================
+
 @router.get("/permissions", response_model=dict)
 async def get_permissions(
-    parent_id: Optional[UUID] = Query(None),
+    parent_id: Optional[str] = Query(None, description="父级权限ID"),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
     """获取权限树"""
     perm_service = PermissionService(db)
-    tree = await perm_service.get_permission_tree(parent_id)
+    tree = await perm_service.get_permission_tree(parse_uuid(parent_id))
 
     return success(tree)
 
 
 @router.get("/menus", response_model=dict)
 async def get_menus(
-    parent_id: Optional[UUID] = Query(None),
+    parent_id: Optional[str] = Query(None, description="父级菜单ID"),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
     """获取菜单树"""
     menu_service = MenuService(db)
-    tree = await menu_service.get_menu_tree(parent_id)
+    tree = await menu_service.get_menu_tree(parse_uuid(parent_id))
 
     return success(tree)
 

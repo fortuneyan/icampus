@@ -60,6 +60,16 @@ export const announcementApi = {
   // 获取阅读记录
   getReadRecords: (id: string, params?: any) => {
     return request.get(`/oa/announcements/${id}/reads`, { params })
+  },
+
+  // 获取评论列表
+  getComments: (id: string, params?: any) => {
+    return request.get(`/oa/announcements/${id}/comments`, { params })
+  },
+
+  // 添加评论
+  addComment: (id: string, data: any) => {
+    return request.post(`/oa/announcements/${id}/comments`, data)
   }
 }
 

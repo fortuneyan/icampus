@@ -13,19 +13,20 @@ from app.core.exceptions import NotFoundException
 from app.models.user import User
 from app.schemas.response import success
 from app.services.dept_service import DepartmentService
+from app.utils.parsers import parse_uuid
 
 router = APIRouter()
 
 
 @router.get("", response_model=dict)
 async def get_departments(
-    parent_id: Optional[UUID] = Query(None, description="父级部门ID"),
+    parent_id: Optional[str] = Query(None, description="父级部门ID"),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
     """获取部门树形列表"""
     dept_service = DepartmentService(db)
-    tree = await dept_service.get_department_tree(parent_id)
+    tree = await dept_service.get_department_tree(parse_uuid(parent_id))
 
     return success(tree)
 
@@ -52,6 +53,35 @@ async def get_all_departments(
     ]
 
     return success(items)
+
+
+# ⚠️ 注意：/options 必须在 /{dept_id} 之前定义，避免 "options" 被当作 dept_id
+@router.get("/options", response_model=dict)
+async def get_department_options(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """获取部门下拉选项（用于工作流等场景）"""
+    from sqlalchemy import select
+    from app.models.department import Department
+
+    stmt = select(Department).where(
+        Department.is_deleted == False
+    ).order_by(Department.sort_order, Department.name)
+    result = await db.execute(stmt)
+    depts = result.scalars().all()
+
+    def build_tree(dept, dept_list):
+        item = {"id": str(dept.id), "name": dept.name}
+        children = [d for d in dept_list if d.parent_id == dept.id]
+        if children:
+            item["children"] = [build_tree(c, dept_list) for c in children]
+        return item
+
+    root_depts = [d for d in depts if d.parent_id is None]
+    tree = [build_tree(d, depts) for d in root_depts]
+
+    return success(tree)
 
 
 @router.get("/{dept_id}", response_model=dict)

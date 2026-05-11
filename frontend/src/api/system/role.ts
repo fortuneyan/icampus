@@ -26,7 +26,17 @@ export function updateRole(id: string, data: RoleForm) {
 }
 
 export function deleteRole(id: string) {
-  return request.delete(`/system/roles/${id}`)
+  return request.delete(`/system/roles`)
+}
+
+// 角色下拉选项（用于工作流审批人选择）
+export function getRoleOptions() {
+  return request.get('/system/roles/options')
+}
+
+// 部门下拉选项（用于工作流部门选择）
+export function getDepartmentOptions() {
+  return request.get('/system/departments/options')
 }
 
 export function getPermissionTree(parentId?: string) {

@@ -65,6 +65,26 @@ export const worklogApi = {
   // 日志月报
   getMonthlyReport: (params: any) => {
     return request.get('/oa/worklogs/monthly-report', { params })
+  },
+
+  // 提交审核
+  submit: (id: string) => {
+    return request.post(`/oa/worklogs/${id}/submit`)
+  },
+
+  // 获取团队日志（主任视图）
+  getTeamLogs: (params?: any) => {
+    return request.get('/oa/worklogs/team', { params })
+  },
+
+  // 审核日志
+  review: (id: string, data: any) => {
+    return request.post(`/oa/worklogs/${id}/review`, data)
+  },
+
+  // 获取日志统计（按用户）
+  getStats: (params?: any) => {
+    return request.get('/oa/worklogs/stats', { params })
   }
 }
 

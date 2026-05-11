@@ -95,6 +95,62 @@
         />
       </div>
     </el-card>
+
+    <!-- 借用申请弹窗 -->
+    <BorrowForm
+      v-model:visible="borrowFormVisible"
+      :asset-id="currentAsset.id"
+      :asset-name="currentAsset.name"
+      @success="loadData"
+    />
+
+    <!-- 报修弹窗 -->
+    <el-dialog v-model="repairDialogVisible" title="报修申请" width="500px" @closed="resetRepairForm">
+      <el-form ref="repairFormRef" :model="repairForm" :rules="repairRules" label-width="100px">
+        <el-form-item label="资产名称">
+          <el-input :model-value="currentAsset.name" disabled />
+        </el-form-item>
+        <el-form-item label="报修原因" prop="reason">
+          <el-input
+            v-model="repairForm.reason"
+            type="textarea"
+            :rows="3"
+            placeholder="请输入报修原因"
+          />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="repairDialogVisible = false">取消</el-button>
+        <el-button type="primary" @click="submitRepair" :loading="repairLoading">提交</el-button>
+      </template>
+    </el-dialog>
+
+    <!-- 批量导入弹窗 -->
+    <el-dialog v-model="importDialogVisible" title="批量导入资产" width="500px">
+      <el-upload
+        ref="importUploadRef"
+        :auto-upload="false"
+        :limit="1"
+        accept=".xlsx,.xls,.csv"
+        :on-change="handleImportFileChange"
+        :on-exceed="handleImportExceed"
+        drag
+      >
+        <el-icon class="el-icon--upload"><UploadFilled /></el-icon>
+        <div class="el-upload__text">
+          将文件拖到此处，或 <em>点击上传</em>
+        </div>
+        <template #tip>
+          <div class="el-upload__tip">
+            仅支持 .xlsx、.xls、.csv 格式文件
+          </div>
+        </template>
+      </el-upload>
+      <template #footer>
+        <el-button @click="importDialogVisible = false">取消</el-button>
+        <el-button type="primary" @click="submitImport" :loading="importLoading">确认导入</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -102,8 +158,10 @@
 import { ref, reactive, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { ArrowDown } from '@element-plus/icons-vue'
+import { ArrowDown, UploadFilled } from '@element-plus/icons-vue'
+import type { UploadFile, UploadInstance } from 'element-plus'
 import { assetApi, assetCategoryApi } from '@/api/oa/assets'
+import BorrowForm from './BorrowForm.vue'
 
 const router = useRouter()
 
@@ -187,17 +245,91 @@ const handleCreate = () => {
 }
 
 const handleView = (row: any) => {
-  router.push(`/oa/assets/${row.id}/view`)
+  router.push(`/oa/assets/${row.id}`)
 }
 
 const handleEdit = (row: any) => {
   router.push(`/oa/assets/${row.id}/edit`)
 }
 
+// 当前操作的资产
+const currentAsset = ref<any>({ id: '', name: '' })
+
+// 借用弹窗
+const borrowFormVisible = ref(false)
+
+// 报修弹窗
+const repairDialogVisible = ref(false)
+const repairLoading = ref(false)
+const repairFormRef = ref()
+const repairForm = reactive({
+  reason: ''
+})
+const repairRules = {
+  reason: [{ required: true, message: '请输入报修原因', trigger: 'blur' }]
+}
+
+const resetRepairForm = () => {
+  repairFormRef.value?.resetFields()
+  repairForm.reason = ''
+}
+
+const submitRepair = async () => {
+  try {
+    await repairFormRef.value?.validate()
+    repairLoading.value = true
+    await assetApi.repair(currentAsset.value.id, { reason: repairForm.reason })
+    ElMessage.success('报修申请已提交')
+    repairDialogVisible.value = false
+    loadData()
+  } catch (error: any) {
+    if (error !== false) {
+      ElMessage.error('报修失败')
+    }
+  } finally {
+    repairLoading.value = false
+  }
+}
+
+// 导入弹窗
+const importDialogVisible = ref(false)
+const importLoading = ref(false)
+const importUploadRef = ref<UploadInstance>()
+const importFile = ref<File | null>(null)
+
+const handleImportFileChange = (file: UploadFile) => {
+  importFile.value = file.raw || null
+}
+
+const handleImportExceed = () => {
+  ElMessage.warning('只能上传一个文件，请先移除已选文件')
+}
+
+const submitImport = async () => {
+  if (!importFile.value) {
+    ElMessage.warning('请先选择文件')
+    return
+  }
+  importLoading.value = true
+  try {
+    const formData = new FormData()
+    formData.append('file', importFile.value)
+    await assetApi.import(formData)
+    ElMessage.success('导入成功')
+    importDialogVisible.value = false
+    loadData()
+  } catch (error) {
+    ElMessage.error('导入失败')
+  } finally {
+    importLoading.value = false
+  }
+}
+
 const handleCommand = async (command: string, row: any) => {
+  currentAsset.value = { id: row.id, name: row.name }
   switch (command) {
     case 'claim':
-      // TODO: 打开领用弹窗
+      borrowFormVisible.value = true
       break
     case 'return':
       try {
@@ -209,10 +341,27 @@ const handleCommand = async (command: string, row: any) => {
       }
       break
     case 'repair':
-      // TODO: 打开报修弹窗
+      repairDialogVisible.value = true
       break
     case 'scrap':
-      // TODO: 打开报废弹窗
+      try {
+        await ElMessageBox.confirm(
+          `确认报废资产「${row.name}」？此操作不可恢复！`,
+          '报废确认',
+          {
+            type: 'warning',
+            confirmButtonText: '确认报废',
+            confirmButtonClass: 'el-button--danger'
+          }
+        )
+        await assetApi.scrap(row.id, {})
+        ElMessage.success('资产已报废')
+        loadData()
+      } catch (error: any) {
+        if (error !== 'cancel') {
+          ElMessage.error('报废失败')
+        }
+      }
       break
     case 'history':
       router.push(`/oa/assets/${row.id}/history`)
@@ -221,11 +370,25 @@ const handleCommand = async (command: string, row: any) => {
 }
 
 const handleImport = () => {
-  // TODO: 批量导入
+  importFile.value = null
+  importDialogVisible.value = true
 }
 
-const handleExport = () => {
-  // TODO: 导出
+const handleExport = async () => {
+  try {
+    const res = await assetApi.export({ ...queryForm })
+    // 处理 Blob 下载
+    const blob = new Blob([res as any], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
+    const url = window.URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = `资产列表_${new Date().toISOString().slice(0, 10)}.xlsx`
+    link.click()
+    window.URL.revokeObjectURL(url)
+    ElMessage.success('导出成功')
+  } catch (error) {
+    ElMessage.error('导出失败')
+  }
 }
 
 onMounted(() => {

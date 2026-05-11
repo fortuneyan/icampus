@@ -180,7 +180,7 @@ const handleCreate = () => {
 }
 
 const handleView = (row: any) => {
-  router.push(`/oa/announcements/${row.id}/view`)
+  router.push(`/oa/announcements/${row.id}`)
 }
 
 const handleEdit = (row: any) => {

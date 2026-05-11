@@ -106,11 +106,11 @@
         </el-form-item>
         <el-form-item label="时间段" prop="time_range">
           <el-select v-model="formData.start_time" placeholder="开始时间" style="width: 120px">
-            <el-option v-for="slot in timeSlots" :key="slot" :label="slot" :value="slot" />
+            <el-option v-for="slot in filteredTimeSlots" :key="slot" :label="slot" :value="slot" />
           </el-select>
           <span style="margin: 0 10px">至</span>
           <el-select v-model="formData.end_time" placeholder="结束时间" style="width: 120px">
-            <el-option v-for="slot in timeSlots" :key="slot" :label="slot" :value="slot" />
+            <el-option v-for="slot in filteredTimeSlots" :key="slot" :label="slot" :value="slot" />
           </el-select>
         </el-form-item>
         <el-form-item label="预约主题" prop="title">
@@ -140,10 +140,13 @@
   </div>
 </template>
 
-<script setup lang="tsx">
+<script setup lang="ts">
 import { ref, reactive, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { roomApi, bookingApi } from '@/api/oa/rooms'
+
+const router = useRouter()
 
 const loading = ref(false)
 const dialogVisible = ref(false)
@@ -152,6 +155,7 @@ const submitLoading = ref(false)
 const tableData = ref([])
 const roomList = ref([])
 const formRef = ref()
+const filteredTimeSlots = ref<string[]>([...timeSlots])
 
 const queryForm = reactive({
   date: '',
@@ -258,7 +262,7 @@ const handleCreate = () => {
 }
 
 const handleView = (row: any) => {
-  // TODO: 跳转到详情页
+  router.push(`/oa/room-bookings/${row.id}`)
 }
 
 const handleCancel = async (row: any) => {
@@ -274,11 +278,26 @@ const handleCancel = async (row: any) => {
 const handleRoomChange = () => {
   formData.start_time = ''
   formData.end_time = ''
+  loadAvailableSlots()
 }
 
 const handleDateChange = () => {
   formData.start_time = ''
   formData.end_time = ''
+  loadAvailableSlots()
+}
+
+const loadAvailableSlots = async () => {
+  if (!formData.room_id || !formData.date) return
+  try {
+    const res = await roomApi.getAvailableSlots(formData.room_id, { date: formData.date })
+    const availableSlots: string[] = res.data?.slots || []
+    // 过滤 timeSlots，仅保留可用的时间段
+    filteredTimeSlots.value = timeSlots.filter(slot => availableSlots.includes(slot))
+  } catch (error) {
+    console.error('加载可用时间槽失败', error)
+    filteredTimeSlots.value = [...timeSlots]
+  }
 }
 
 const resetForm = () => {
@@ -292,6 +311,7 @@ const resetForm = () => {
     description: '',
     attendee_count: 1
   })
+  filteredTimeSlots.value = [...timeSlots]
 }
 
 const handleSubmit = async () => {

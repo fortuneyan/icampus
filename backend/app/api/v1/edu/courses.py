@@ -15,13 +15,14 @@ from app.models.course import Course
 from app.schemas.course import CourseCreate, CourseUpdate
 from app.schemas.response import success, page_response
 from app.services.course_service import CourseService
+from app.utils.parsers import parse_uuid
 
 router = APIRouter()
 
 
 @router.get("", response_model=dict)
 async def get_courses(
-    grade_id: Optional[UUID] = Query(None),
+    grade_id: Optional[str] = Query(None, description="年级ID"),
     status: Optional[str] = Query(None),
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=1000),
@@ -32,8 +33,9 @@ async def get_courses(
     course_service = CourseService(db)
 
     filters = []
-    if grade_id:
-        filters.append(Course.grade_id == grade_id)
+    parsed_grade_id = parse_uuid(grade_id)
+    if parsed_grade_id:
+        filters.append(Course.grade_id == parsed_grade_id)
     if status:
         filters.append(Course.status == status)
 
@@ -65,13 +67,13 @@ async def get_courses(
 
 @router.get("/options", response_model=dict)
 async def get_course_options(
-    grade_id: Optional[UUID] = Query(None),
+    grade_id: Optional[str] = Query(None, description="年级ID"),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
     """获取课程下拉选项"""
     course_service = CourseService(db)
-    options = await course_service.get_course_options(grade_id)
+    options = await course_service.get_course_options(parse_uuid(grade_id))
     return success(options)
 
 

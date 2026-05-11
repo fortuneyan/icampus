@@ -22,6 +22,8 @@ from app.models.oa import (
 from app.models import User, Notification
 from app.core.exceptions import BusinessException, ErrorCode, NotFoundException, ForbiddenException
 from app.services.oa.approver_resolver import ApproverResolver
+from app.services.oa.business_callbacks import BusinessCallbackRegistry
+from app.services.oa.condition_evaluator import ConditionEvaluator
 
 
 class WorkflowEngine:
@@ -30,6 +32,7 @@ class WorkflowEngine:
     def __init__(self, db: AsyncSession):
         self.db = db
         self.approver_resolver = ApproverResolver(db)
+        self.condition_evaluator = ConditionEvaluator()
 
     # ========================================================================
     # 流程启动
@@ -72,8 +75,8 @@ class WorkflowEngine:
 
         # 获取工作流定义
         definition = await self._get_definition(definition_id)
-        if not definition.is_active:
-            raise BusinessException(ErrorCode.INVALID_OPERATION, "工作流已停用")
+        if definition.status != "published":
+            raise BusinessException(ErrorCode.INVALID_OPERATION, "工作流未发布或已禁用")
 
         # 获取发起人信息
         initiator = await self._get_user(initiator_id)
@@ -314,35 +317,18 @@ class WorkflowEngine:
         node: OaWorkflowNode,
         form_data: Dict[str, Any]
     ) -> bool:
-        """评估条件表达式"""
-        condition_expr = node.condition_expression
-        if not condition_expr:
-            return True
+        """
+        评估条件节点表达式（委托给 ConditionEvaluator）
 
-        # 简单实现：支持基本条件判断
-        # 格式: field == value, field > value, field < value
-        try:
-            # 提取字段名和值
-            parts = condition_expr.split()
-            if len(parts) >= 3:
-                field = parts[0]
-                operator = parts[1]
-                value = parts[2]
-                
-                field_value = form_data.get(field)
-                
-                if operator == "==":
-                    return str(field_value) == value
-                elif operator == "!=":
-                    return str(field_value) != value
-                elif operator == ">":
-                    return float(field_value or 0) > float(value)
-                elif operator == "<":
-                    return float(field_value or 0) < float(value)
-        except Exception:
-            pass
-        
-        return True
+        支持：
+        - 简单三段式: "field op value"
+        - JSON结构: {"op": "AND/OR", "conditions": [...]}
+        - 字段路径: "form.amount" 或嵌套 "data.config.threshold"
+        """
+        return self.condition_evaluator.evaluate(
+            expression=node.condition_expression,
+            context=form_data,
+        )
 
     async def _create_approval_task(
         self,
@@ -638,8 +624,8 @@ class WorkflowEngine:
         })
         instance.approval_summary = summary
 
-    async def _get_action_name(self, action: str) -> str:
-        """获取操作名称"""
+    def _get_action_name(self, action: str) -> str:
+        """获取操作名称（同步方法，用于 f-string 和异常消息）"""
         action_names = {
             "APPROVE": "审批",
             "REJECT": "拒绝",
@@ -715,6 +701,115 @@ class WorkflowEngine:
             )
         ).values(status="CANCELLED")
         await self.db.execute(stmt)
+
+    # ========================================================================
+    # 催办
+    # ========================================================================
+
+    async def urge_instance(
+        self,
+        instance_id: UUID,
+        operator_id: UUID,
+        message: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """
+        催办审批实例
+
+        给当前节点所有待处理审批人发送系统通知，并记录催办次数。
+
+        Args:
+            instance_id: 审批实例ID
+            operator_id: 操作人ID（必须是发起人）
+            message: 催办消息（默认："请尽快处理该审批申请"）
+
+        Returns:
+            {
+                "instance_id": str,
+                "urge_count": int,       # 本次催办后的累计催办次数
+                "last_urge_at": str,     # ISO8601 格式的最后催办时间
+                "notified_users": int,   # 本次被通知的审批人数量
+            }
+
+        Raises:
+            NotFoundException: 实例不存在
+            ForbiddenException: 非发起人操作
+            BusinessException(INVALID_OPERATION): 审批已结束，无法催办
+            BusinessException(RATE_LIMIT_EXCEEDED): 距上次催办不足1小时
+        """
+        import logging as _logging
+        _logger = _logging.getLogger(__name__)
+
+        instance = await self._get_instance(instance_id)
+        if not instance:
+            raise NotFoundException("审批实例不存在", ErrorCode.WORKFLOW_INSTANCE_NOT_FOUND)
+
+        # 权限验证：只有发起人可以催办
+        if instance.initiator_id != operator_id:
+            raise ForbiddenException("只有发起人可以催办")
+
+        # 状态验证：只有进行中的实例可以催办
+        if instance.status not in ["PENDING", "APPROVING"]:
+            raise BusinessException(
+                ErrorCode.INVALID_OPERATION,
+                "审批已结束，无法催办"
+            )
+
+        # 防频繁催办：距上次催办不足1小时
+        if instance.last_urge_at:
+            elapsed = (datetime.now() - instance.last_urge_at).total_seconds()
+            if elapsed < 3600:  # 1小时 = 3600秒
+                remaining = int((3600 - elapsed) / 60)
+                raise BusinessException(
+                    ErrorCode.RATE_LIMIT_EXCEEDED,
+                    f"催办过于频繁，请 {remaining} 分钟后再试"
+                )
+
+        # 查找当前节点的待处理任务
+        stmt = select(OaWorkflowTask).where(
+            and_(
+                OaWorkflowTask.instance_id == instance_id,
+                OaWorkflowTask.status == "PENDING",
+                OaWorkflowTask.is_deleted == False
+            )
+        )
+        result = await self.db.execute(stmt)
+        pending_tasks = result.scalars().all()
+
+        # 给每个待处理审批人发系统通知（记录催办并更新任务催办次数）
+        notified_count = 0
+        urge_message = message or "请尽快处理该审批申请"
+        for task in pending_tasks:
+            if task.assignee_id:
+                # 更新任务的催办提醒次数
+                task.overdue_reminders = (task.overdue_reminders or 0) + 1
+                notified_count += 1
+                _logger.info(
+                    "[WorkflowUrge] Notified assignee: task_id=%s, assignee_id=%s, msg=%s",
+                    task.id,
+                    task.assignee_id,
+                    urge_message,
+                )
+
+        # 更新实例的催办记录
+        now = datetime.now()
+        instance.last_urge_at = now
+        instance.urge_count = (instance.urge_count or 0) + 1
+
+        await self.db.commit()
+
+        _logger.info(
+            "[WorkflowUrge] instance_id=%s, urge_count=%s, notified=%s",
+            instance_id,
+            instance.urge_count,
+            notified_count,
+        )
+
+        return {
+            "instance_id": str(instance_id),
+            "urge_count": instance.urge_count,
+            "last_urge_at": now.isoformat(),
+            "notified_users": notified_count,
+        }
 
     # ========================================================================
     # 抄送处理
@@ -800,16 +895,36 @@ class WorkflowEngine:
         result: str
     ) -> None:
         """
-        审批完成后调用业务回调
-        
-        实际项目中，这里应该根据business_type调用不同的业务处理逻辑
-        例如：
-        - ROOM_BOOKING: 更新教室预约状态
-        - ASSET_BORROW: 更新资产借用状态
+        审批完成后调用业务回调（策略模式）
+
+        Args:
+            instance: 审批实例（status 已更新为 APPROVED 或 REJECTED）
+            result: 结果 "APPROVED" | "REJECTED"
+
+        注意：
+            - 回调失败不影响主流程，异常会被捕获并记录日志
+            - 新业务类型在应用启动时注册到 BusinessCallbackRegistry
         """
-        # TODO: 实现业务回调逻辑
-        # 可以通过事件系统或策略模式实现
-        pass
+        import logging as _logging
+        _logger = _logging.getLogger(__name__)
+
+        registry = BusinessCallbackRegistry.instance()
+        handler = registry.get_handler(instance.business_type, self.db)
+
+        try:
+            if result == "APPROVED":
+                await handler.on_approved(instance)
+            elif result == "REJECTED":
+                await handler.on_rejected(instance)
+        except Exception as e:
+            _logger.error(
+                "[WorkflowCallback] Error in business callback: "
+                "business_type=%s, instance_id=%s, error=%s",
+                instance.business_type,
+                instance.id,
+                e,
+                exc_info=True,
+            )
 
     # ========================================================================
     # 查询方法
@@ -1187,3 +1302,130 @@ class WorkflowEngine:
         ]
 
         return {"items": items, "total": total, "page": page, "page_size": page_size}
+
+    # ========================================================================
+    # 统计接口
+    # ========================================================================
+
+    async def get_statistics(
+        self,
+        start_date: Optional[datetime] = None,
+        end_date: Optional[datetime] = None,
+        business_type: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """
+        获取工作流统计数据
+
+        Args:
+            start_date: 开始时间（默认: 30天前）
+            end_date: 结束时间（默认: 现在）
+            business_type: 业务类型过滤
+
+        Returns:
+            {
+                "summary": {
+                    "total": int,              # 总申请数
+                    "approved": int,           # 已通过数
+                    "rejected": int,           # 已拒绝数
+                    "cancelled": int,          # 已撤回数
+                    "in_progress": int,        # 进行中数
+                    "approve_rate": float,     # 通过率 0.0 ~ 1.0
+                    "avg_duration_hours": float | None,  # 平均审批时长(小时)
+                },
+                "by_type": [
+                    {
+                        "business_type": str,
+                        "total": int,
+                        "approved": int,
+                        "rejected": int,
+                        "approve_rate": float,
+                    }
+                ]
+            }
+        """
+        if not start_date:
+            start_date = datetime.now() - timedelta(days=30)
+        if not end_date:
+            end_date = datetime.now()
+
+        # 构建基础查询条件
+        base_conditions = [
+            OaWorkflowInstance.submitted_at >= start_date,
+            OaWorkflowInstance.submitted_at <= end_date,
+            OaWorkflowInstance.is_deleted == False,
+        ]
+        if business_type:
+            base_conditions.append(OaWorkflowInstance.business_type == business_type)
+
+        # 1. 总体汇总
+        total_stmt = select(func.count()).select_from(
+            select(OaWorkflowInstance).where(and_(*base_conditions)).subquery()
+        )
+        total = (await self.db.execute(total_stmt)).scalar() or 0
+
+        # 按状态统计
+        status_stmt = select(
+            OaWorkflowInstance.status,
+            func.count().label("cnt")
+        ).where(and_(*base_conditions)).group_by(OaWorkflowInstance.status)
+        status_result = await self.db.execute(status_stmt)
+        status_counts = {row[0]: row[1] for row in status_result.fetchall()}
+
+        approved = status_counts.get("APPROVED", 0)
+        rejected = status_counts.get("REJECTED", 0)
+        cancelled = status_counts.get("CANCELLED", 0)
+        in_progress = status_counts.get("APPROVING", 0) + status_counts.get("PENDING", 0)
+
+        approve_rate = round(approved / (approved + rejected), 3) if (approved + rejected) > 0 else 0
+
+        # 平均审批时长（小时）
+        duration_stmt = select(
+            func.avg(
+                func.extract("epoch", OaWorkflowInstance.completed_at - OaWorkflowInstance.submitted_at) / 3600
+            )
+        ).where(
+            and_(
+                *base_conditions,
+                OaWorkflowInstance.status.in_(["APPROVED", "REJECTED"]),
+                OaWorkflowInstance.completed_at.isnot(None)
+            )
+        )
+        avg_duration = (await self.db.execute(duration_stmt)).scalar()
+
+        # 2. 按业务类型分组
+        by_type_stmt = select(
+            OaWorkflowInstance.business_type,
+            func.count().label("total"),
+            func.sum(func.case((OaWorkflowInstance.status == "APPROVED", 1), else_=0)).label("approved"),
+            func.sum(func.case((OaWorkflowInstance.status == "REJECTED", 1), else_=0)).label("rejected"),
+        ).where(and_(*base_conditions)).group_by(OaWorkflowInstance.business_type)
+        by_type_result = await self.db.execute(by_type_stmt)
+
+        by_type = []
+        for row in by_type_result.fetchall():
+            biz_type = row[0]
+            biz_total = row[1]
+            biz_approved = row[2] or 0
+            biz_rejected = row[3] or 0
+            biz_approve_rate = round(biz_approved / (biz_approved + biz_rejected), 3) \
+                if (biz_approved + biz_rejected) > 0 else 0
+            by_type.append({
+                "business_type": biz_type,
+                "total": biz_total,
+                "approved": biz_approved,
+                "rejected": biz_rejected,
+                "approve_rate": biz_approve_rate,
+            })
+
+        return {
+            "summary": {
+                "total": total,
+                "approved": approved,
+                "rejected": rejected,
+                "cancelled": cancelled,
+                "in_progress": in_progress,
+                "approve_rate": approve_rate,
+                "avg_duration_hours": round(float(avg_duration), 1) if avg_duration else None,
+            },
+            "by_type": by_type,
+        }

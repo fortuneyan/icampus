@@ -36,7 +36,10 @@ class OaWorkflowDefinition(Base, SoftDeleteMixin, TimestampMixin):
     
     # 版本控制
     version = Column(Integer, default=1, nullable=False, comment="版本号")
-    is_active = Column(Boolean, default=True, nullable=False, comment="是否启用")
+    
+    # 状态字段: draft-草稿, published-已发布, disabled-已禁用
+    status = Column(String(20), default="draft", nullable=False, comment="状态")
+    is_active = Column(Boolean, default=False, nullable=False, comment="是否启用")
     
     # 流程配置 (JSON)
     # 包含节点定义、路由规则等
@@ -192,6 +195,10 @@ class OaWorkflowInstance(Base, SoftDeleteMixin, TimestampMixin):
     # 撤回信息
     cancelled_at = Column(DateTime, nullable=True, comment="撤回时间")
     cancel_reason = Column(Text, nullable=True, comment="撤回原因")
+
+    # 催办记录
+    last_urge_at = Column(DateTime, nullable=True, comment="最后催办时间")
+    urge_count = Column(Integer, default=0, nullable=False, comment="催办次数")
     
     # 关系
     definition = relationship("OaWorkflowDefinition", back_populates="instances")
