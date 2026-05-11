@@ -33,7 +33,8 @@ async def migrate():
                         code VARCHAR(50) NOT NULL UNIQUE,
                         description TEXT,
                         version INTEGER DEFAULT 1 NOT NULL,
-                        is_active BOOLEAN DEFAULT TRUE NOT NULL,
+                        status VARCHAR(20) DEFAULT 'draft' NOT NULL,
+                        is_active BOOLEAN DEFAULT FALSE NOT NULL,
                         config JSONB,
                         form_config JSONB,
                         business_type VARCHAR(50),
@@ -204,6 +205,7 @@ async def migrate():
             # oa_workflow_definition 索引
             "CREATE INDEX IF NOT EXISTS idx_workflow_def_code ON oa_workflow_definition(code)",
             "CREATE INDEX IF NOT EXISTS idx_workflow_def_business_type ON oa_workflow_definition(business_type)",
+            "CREATE INDEX IF NOT EXISTS idx_workflow_def_status ON oa_workflow_definition(status)",
             "CREATE INDEX IF NOT EXISTS idx_workflow_def_active ON oa_workflow_definition(is_active)",
 
             # oa_workflow_node 索引
